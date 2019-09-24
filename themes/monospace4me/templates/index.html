@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content_title %}{% endblock %}
+{% block content %}
+
+<header>
+<h1><a href="{{ SITEURL }}" id="site-title"> {# {{ SITENAME }} #} </a> {#:#} <a href="{{ SITEURL }}/{{ INDEX_SAVE_AS }}" id="page-title">Content Index</a></h1>
+</header>
+
+<div id="back">
+  <a href="{{ SITEURL }}">Return to Launch Page</a>
+</div>
+
+{% if articles %}
+    <section id="article-list">
+        <h2>All content</h2>
+        <ul>
+          {% for article in articles %}
+            <li><a href="{{ SITEURL }}/{{ article.url }}" rel="bookmark" title="{{ article.title}}">{{ article.title }}</a></li>
+          {% endfor %}
+        </ul>
+    </section><!-- #article-list -->
+
+{% else %}
+    <p>Nothing to see here. Move along.</p>
+{% endif %}
+{% endblock content %}
