@@ -5,7 +5,7 @@ Author: Andrew Boring
 
 ## Summary
 
-A musically-inclined micropreneur with a background in data center operations and product development in the service provider market space. Current technology interests include data science and analytics, IoT and embedded systems, and automation-at-scale. Outside the workplace, I perform live, original music and work as occasional background talent in Atlanta's growing film industry.
+I am a musically-inclined micropreneur with a background in data center operations and product development in the service provider market space. Current technology interests include data science and analytics, IoT and embedded systems, and automation-at-scale. Outside the workplace, I perform live, original music and work as occasional background talent in Atlanta's growing film industry.
 
 
 ---
@@ -19,13 +19,10 @@ A musically-inclined micropreneur with a background in data center operations an
 
 ## Writing Samples
 
-- Unofficial ACI Guide
+- [Unofficial ACI Guide](https://unofficialaciguide.com/author/maboring/)
 
 
 ## Video / Voice over Samples
 
-- Internap Marketing Videos (originally posted at https://www.youtube.com/user/Internap/videos)
-
- - This
- - That
- - The Other
+- [Internap Marketing Videos (presenter)]({filename}/content/videos.md)
+- [Internap Dashboard Demo (voiceover)]({filename}/content/voice.md)
