@@ -4,133 +4,133 @@ xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitem
 xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
 <url>
-<loc>/</loc>
-<lastmod>2019-09-24T13:17:08-00:00</lastmod>
+<loc>https://andrewboring.com/</loc>
+<lastmod>2019-09-24T13:29:28-00:00</lastmod>
 <changefreq>daily</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/archives.html</loc>
-<lastmod>2019-09-24T13:17:08-00:00</lastmod>
+<loc>https://andrewboring.com/archives.html</loc>
+<lastmod>2019-09-24T13:29:28-00:00</lastmod>
 <changefreq>daily</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/tags.html</loc>
-<lastmod>2019-09-24T13:17:08-00:00</lastmod>
+<loc>https://andrewboring.com/tags.html</loc>
+<lastmod>2019-09-24T13:29:28-00:00</lastmod>
 <changefreq>daily</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/pages/about.html</loc>
+<loc>https://andrewboring.com/pages/about.html</loc>
 <lastmod>2019-09-15T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/pages/contact.html</loc>
+<loc>https://andrewboring.com/pages/contact.html</loc>
 <lastmod>2019-09-15T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/pages/resume.html</loc>
+<loc>https://andrewboring.com/pages/resume.html</loc>
 <lastmod>2019-09-15T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/content/new-site.html</loc>
+<loc>https://andrewboring.com/content/new-site.html</loc>
 <lastmod>2019-09-23T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/content/9413.html</loc>
+<loc>https://andrewboring.com/content/9413.html</loc>
 <lastmod>2019-09-15T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/content/consulting.html</loc>
+<loc>https://andrewboring.com/content/consulting.html</loc>
 <lastmod>2019-09-15T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/content/music.html</loc>
+<loc>https://andrewboring.com/content/music.html</loc>
 <lastmod>2019-09-15T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/content/projects.html</loc>
+<loc>https://andrewboring.com/content/projects.html</loc>
 <lastmod>2019-09-15T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/content/videos.html</loc>
+<loc>https://andrewboring.com/content/videos.html</loc>
 <lastmod>2019-09-15T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/content/voice.html</loc>
+<loc>https://andrewboring.com/content/voice.html</loc>
 <lastmod>2019-09-15T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/content/quora-organizing-metadata-in-a-data-lake.html</loc>
+<loc>https://andrewboring.com/content/quora-organizing-metadata-in-a-data-lake.html</loc>
 <lastmod>2019-05-03T00:00:00-04:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/content/quora-are-there-any-cloud-storage-that-support-deniable-encryption.html</loc>
+<loc>https://andrewboring.com/content/quora-are-there-any-cloud-storage-that-support-deniable-encryption.html</loc>
 <lastmod>2019-02-26T00:00:00-05:00</lastmod>
 <changefreq>monthly</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/category/self-promo.html</loc>
+<loc>https://andrewboring.com/category/self-promo.html</loc>
 <lastmod>2019-09-15T00:00:00-04:56</lastmod>
 <changefreq>daily</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/category/weblog.html</loc>
+<loc>https://andrewboring.com/category/weblog.html</loc>
 <lastmod>2019-09-23T00:00:00-04:56</lastmod>
 <changefreq>daily</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/topic/quora.html</loc>
+<loc>https://andrewboring.com/topic/quora.html</loc>
 <lastmod>2019-05-03T00:00:00-04:56</lastmod>
 <changefreq>daily</changefreq>
 <priority>0.5</priority>
 </url>
 
 <url>
-<loc>/author/andrew-boring.html</loc>
+<loc>https://andrewboring.com/author/andrew-boring.html</loc>
 <lastmod>2019-09-23T00:00:00-04:56</lastmod>
 <changefreq>daily</changefreq>
 <priority>0.5</priority>
