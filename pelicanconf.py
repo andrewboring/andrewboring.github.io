@@ -12,17 +12,20 @@ TIMEZONE = 'America/New_York'
 
 DEFAULT_LANG = 'en'
 # Feed generation is usually not desired when developing
-FEED_ALL_ATOM = None
-CATEGORY_FEED_ATOM = None
+FEED_ALL_ATOM = 'feeds/all/atom.xml'
+FEED_ALL_RSS = None
+CATEGORY_FEED_ATOM = 'feeds/{slug}/atom.xml'
+CATEGORY_FEED_RSS = None
 TRANSLATION_FEED_ATOM = None
 AUTHOR_FEED_ATOM = None
 AUTHOR_FEED_RSS = None
 
+
 # Blogroll
-LINKS = (('a10g Projects', 'https://a10g.com'),
-         ('Eriscape', 'https://eriscape.com'),
-         ('BENJA', 'https://benja.io'),
-         ('Here To', 'http://here.to'),)
+#LINKS = (('a10g Projects', 'https://a10g.com'),
+#         ('Eriscape', 'https://eriscape.com'),
+#         ('BENJA', 'https://benja.io'),
+#         ('Here To', 'http://here.to'),)
 
 # Social widget
 SOCIAL = (('LinkedIn','https://linkedin.com/in/andrewboring'),
