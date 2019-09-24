@@ -8,4 +8,4 @@ status: hidden
 Home: yes
 Template: home
 
-This is my website. It serves as a blog, a portfolio, and depending on your level of interest, original content with which you may amuse yourself.
+This is my website. It serves as a blog and a portfolio, mostly.

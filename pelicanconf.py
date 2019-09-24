@@ -68,3 +68,8 @@ COMICS = (('Perry Bible Fellowship', 'https://pbfcomics.com'),
          ('XKCD', 'https://xkcd.com'),
          ('Red Meat', 'https://www.redmeat.com/max-cannon/FreshMeat'),
          ('', ''),)
+
+AMUSEMENT = (('Museam of Unworkable Devices', 'https://www.lockhaven.edu/~dsimanek/museum/annex.htm'),
+         ('ACME Klein Bottles', 'https://www.kleinbottle.com'),
+         ('The Hosaphone(tm)', 'https://www.hosaphone.com'),
+         ('', ''),)
