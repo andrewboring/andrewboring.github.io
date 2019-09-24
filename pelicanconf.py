@@ -45,7 +45,7 @@ DISPLAY_CATEGORIES_ON_MENU = False
 CATEGORIES_SAVE_AS = ''
 ARTICLE_PATHS = ['content']
 INDEX_SAVE_AS = 'content/index.html'
-STATIC_PATHS = ['media']
+STATIC_PATHS = ['media', 'extra/CNAME']
 ARTICLE_URL = 'content/{slug}.html'
 ARTICLE_SAVE_AS = 'content/{slug}.html'
 DRAFT_PAGE_SAVE_AS = 'drafts/{slug}.html'
@@ -73,3 +73,5 @@ AMUSEMENT = (('Museam of Unworkable Devices', 'https://www.lockhaven.edu/~dsiman
          ('ACME Klein Bottles', 'https://www.kleinbottle.com'),
          ('The Hosaphone(tm)', 'https://www.hosaphone.com'),
          ('', ''),)
+
+EXTRA_PATH_METADATA = {'extra/CNAME': {'path': 'CNAME'},}
