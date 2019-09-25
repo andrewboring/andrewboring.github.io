@@ -1,4 +1,4 @@
-Title: Launch Page
+Title: Various and Sundries
 Date: 2019-09-17
 Author: Andrew Boring
 save_as: index.html
