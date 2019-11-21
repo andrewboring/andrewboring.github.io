@@ -3,7 +3,6 @@ Date: 2019-11-21
 Slug: alarm-Images
 Category: weblog
 Tags: tech, archlinux, archlinuxarm, automation, devops, ci
-Status: draft
 
 ## The Problem
 
