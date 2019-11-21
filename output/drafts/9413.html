@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-        <title>Andrew Boring : Background Work</title>
+        <title>Andrew Boring : RFC IP Address Blocks</title>
         <meta charset="utf-8" /> <link rel="stylesheet" href="../theme/css/main.css" type="text/css" />
         <link href="../" type="application/atom+xml" rel="alternate" title="Andrew Boring ATOM Feed" />
 
@@ -20,12 +20,12 @@
 </head>
 
 <body>
-  	<div id="wrap" style="width:850px">
-	      <div id="container" style="width:560px">
+  	<div id="wrap" style="width:1024px">
+	      <div id="container" style="width:700px">
 
             <div class="entry">
 <header>
-<h1><a href=".." id="site-title">  </a>         <a href="../drafts/9413.html" id="page-title">Background Work</a></h1>
+<h1><a href=".." id="site-title">  </a>         <a href="../drafts/9413.html" id="page-title">RFC IP Address Blocks</a></h1>
 </header>
 
 <div id="back">
@@ -33,22 +33,26 @@
 </div>
 
 <article>
-    <h3>Lights! Camera! Action!</h3>
-<p>The Big Screen came to Georgia several years ago, and the film industry is just getting better. So good, <strong>you too</strong> can become a STAR, just like 9413, a Hollywood Extra:</p>
-<p><span class="videobox">
-                <iframe width="640" height="390"
-                    src='https://www.youtube.com/embed/xnAEHFhxuQI'
-                    frameborder='0' webkitAllowFullScreen mozallowfullscreen
-                    allowFullScreen>
-                </iframe>
-            </span></p>
-<p>In the meantime, I registered with <a href="https://www.centralcasting.com">Central Casting</a>, who provides Background Talent for movie and tv productions. Yep. I stand in the background, pantomiming conversations, and try not to be too noticeable. I'm LIVING THE DREAM, just like 9413.</p>
-<p>Some [uncredited] productions I've worked on in the past:
-- Dr. Bird's Advice for Sad Poets (2018)
-- The Gifted (2018)
-- Beauty and The Baker (2019)
-- Dynasty (2019)</p>
-<p>Sorry. No spoilers allowed.</p>
+    <p>IP Address Blocks for Documentation
+<a href="https://tools.ietf.org/html/rfc5737">RFC 5737</a>
+192.0.2.0/24  TEST-NET-1
+198.51.100.0/24  TEST-NET-2
+203.0.11.3.0/24  TEST-NET-3</p>
+<p>IP Address Blocks for Private Multisite
+<a href="https://tools.ietf.org/html/rfc1918">RFC 1918</a>
+10.0.0.0        -   10.255.255.255  (10/8 prefix)
+172.16.0.0      -   172.31.255.255  (172.16/12 prefix)
+192.168.0.0     -   192.168.255.255 (192.168/16 prefix)</p>
+<blockquote>
+<p>We will refer to the first block as "24-bit block", the second as
+"20-bit block", and to the third as "16-bit" block. Note that (in
+pre-CIDR notation) the first block is nothing but a single class A
+network number, while the second block is a set of 16 contiguous
+class B network numbers, and third block is a set of 256 contiguous
+class C network numbers.</p>
+</blockquote>
+<p>IPv4 Multicast Address Space
+224.0.0.0 through 239.255.255.255</p>
 </article>
 
 
@@ -59,7 +63,7 @@
 
         <div id="sidebar">
             <h1><a href=".. " title="title">Andrew Boring</a></h1>
-            <span class="description">There are many Andrews in this world, but only I am Boring! </span>
+            <span class="description">There are many Andrews in this world, but only I am Boring. </span>
             <!-- <span class="feed"><a href="">RSS</a> | <a href="">Atom</a></span> -->
 
 			      <p>&nbsp;</p>
@@ -72,15 +76,6 @@
                 </ul>
             </nav>
 
-                <div class="widget blogroll">
-                        <h2>Blogroll</h2>
-                        <ul>
-                            <li><a href="https://a10g.com">a10g Projects</a></li>
-                            <li><a href="https://eriscape.com">Eriscape</a></li>
-                            <li><a href="https://benja.io">BENJA</a></li>
-                            <li><a href="http://here.to">Here To</a></li>
-                        </ul>
-                </div><!-- /.blogroll -->
                 <div class="widget social">
                         <h2>Social</h2>
                         <ul>
@@ -90,13 +85,15 @@
                             <li><a href="https://github.com/andrewboring">Github</a></li>
                         </ul>
                	</div>
-            <!--
+
+
             <div class="widget blogroll">
-                <h2>Content Feed</h2>
+                <h2>Data</h2>
                 <ul>
-                    <li><a href="../None" rel="alternate">atom feed</a></li>
+                    <li><a href="../sitemap.xml">sitemap</a></li>
+                    <li><a href="../feeds/all/atom.xml" rel="alternate">atom feed</a></li>
                 </ul>
-            </div> -->
+            </div>
 
 		    </div>
 

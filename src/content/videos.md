@@ -6,7 +6,6 @@ Category: self-promo
 A selection of video featuring yours truly.
 
 ## Internap Marketing Videos
-I often needed
 
 ### Ask the Expert: OpenStack and its Advantages
 {% youtube 25kdUPunFc8 426 240 %}
