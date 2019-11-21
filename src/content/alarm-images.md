@@ -4,15 +4,14 @@ Slug: alarm-Images
 Category: weblog
 Tags: tech, archlinux, archlinuxarm, automation, devops, ci
 
-## The Problem
 
 I've been working a bit with Raspberry Pi lately, both the 3B and 3B+ and soon, the Pi 4. Most of this was originally to support a client using the 3B to drive media displays and interactive kiosks. Since they were using Arch Linux ARM, I began using it, too.
 
 Arch Linux ARM (ALArm, for short) provides a compressed tarball of the root filesystem, and you're responsible for preparing the SD card with the partitions and filesystems and unpacking the tarball onto the SD card from another computer before you can boot it. There's no installer in the traditional sense.
 
-This is fine for a one-off, but if you're building a provisioning tool or install script, you probably want a clean image each time. You can simply duplicate your card, either by using an SD Card duplicator or by writing the SD Card to an image file and back. If you don't have a duplicator (most people don't), then writing an image is the solution.
+This is fine for one-off usage, but if you're building a provisioning tool or install script, you probably want a clean image each time. You could simply duplicate your card with an SD Card duplicator, but most people don't have one of these. The other option is writing the SD Card to an image file and back again.
 
-Except...the smallest conventional card you can by these days is 32GB. The 8GB/16GB cards are still available, but are older units and are more expensive (per-GB). Keeping a 32GB image file on disk takes up considerable disk space, while writing the file *back* to SD card can easily take a good four hours to complete.
+Except...the smallest conventional card you can buy these days is 32GB. The 8GB/16GB cards are still available, but are older units and are more expensive per-GB. Keeping a 32GB image file on disk takes up considerable disk space, while writing the image *back* to SD card can easily take a good four hours to complete. So, each time my script errored out and I needed to make an adjustment and boot a clean image, it was a time-consuming process. And since this was ARM instead of Intel, I can't simply use Virtualbox. Using Qemu to emulate ARM is doable to a small extent, but there are significant differences in a running OS in an emulator versus having actual supported hardware.
 
 ## Solution
 
