@@ -1,19 +1,36 @@
 {% extends "base.html" %}
-{% block title %}{{ page.title }}{% endblock %}
+{% block title %}{{ SITENAME }} : {{ page.title }}{% endblock %}
 
 {% block content %}
-<header>
-<h1><a href="{{ SITEURL }}" id="site-title">{# {{ SITENAME }} #} {% if SITESUBTITLE %} <strong>{{ SITESUBTITLE }}</strong>{% endif %}</a> {#:#}
-        <a href="{{ SITEURL }}/{{ page.url }}" id="page-title">{{ page.title }}</a></h1>
-</header>
-{% if page and not page.home %}
-<div id="back">
+
+
+<!-- {% if page and not page.home %}
+<div class="back mb-3">
   <a href="{{ SITEURL }}">Return to Launch Page</a>
 </div>
-{% endif %}
-<article>
-    {{ page.content }}
-</article>
+{% endif %} -->
+
+
+<div class="row row-cols-1 mb-3">
+  <div class="col">
+
+      <div class="panel-header back mb-4">
+        <h2>
+          <a href="{{ SITEURL }}/{{ page.url }}" id="page-title">{{ page.title }}</a>
+        </h2>
+      <!-- </div>
+      <div class="back mb-4"> -->
+        <a href="{{ SITEURL }}/index.html">Return to Launch Page</a>
+      </div>
+      <div class="panel-body p-3">
+        {{ page.content }}
+      </div>
+
+  </div>
+</div>
+
+<div class="row row-cols-1 mb-3">
+
 
 
 {% endblock %}

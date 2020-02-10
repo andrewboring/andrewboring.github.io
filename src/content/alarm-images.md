@@ -1,6 +1,6 @@
 Title: Boot Images for Arch Linux ARM
 Date: 2019-11-21
-Slug: alarm-Images
+Slug: alarm-images
 Category: weblog
 Tags: tech, archlinux, archlinuxarm, automation, devops, ci
 
@@ -11,7 +11,7 @@ Arch Linux ARM (ALArm, for short) provides a compressed tarball of the root file
 
 This is fine for one-off usage, but if you're building a provisioning tool or install script, you probably want a clean image each time. You could simply duplicate your card with an SD Card duplicator, but most people don't have one of these. The other option is writing the SD Card to an image file and back again.
 
-Except...the smallest conventional card you can buy these days is 32GB. The 8GB/16GB cards are still available, but are older units and are more expensive per-GB. Keeping a 32GB image file on disk takes up considerable disk space, while writing the image *back* to SD card can easily take a good four hours to complete. So, each time my script errored out and I needed to make an adjustment and boot a clean image, it was a time-consuming process. And since this was ARM instead of Intel, I can't simply use Virtualbox. Using Qemu to emulate ARM is doable to a small extent, but there are significant differences in a running OS in an emulator versus having actual supported hardware.
+Except...the smallest conventional card you can bu y these days is 32GB. The 8GB/16GB cards are still available, but are older units and are more expensive per-GB. Keeping a 32GB image file on disk takes up considerable disk space, while writing the image *back* to SD card can easily take a good four hours to complete. So, each time my script errored out and I needed to make an adjustment and boot a clean image, it was a time-consuming process. And since this was ARM instead of Intel, I can't simply use Virtualbox. Using Qemu to emulate ARM is doable to a small extent, but there are significant differences in a running OS in an emulator versus having actual supported hardware.
 
 ## Solution
 
@@ -31,7 +31,7 @@ However, I wanted to update these images periodically and hate Hate HATE!!! repe
 
 Happily, Disconnected Systems [solved this one](https://disconnected.systems/blog/custom-rpi-image-with-github-travis/), too, and after a bit of tinkering, I now have a working source repo that allows me to a) build images locally using Vagrant and b) automatically build and deploy releases directly to Github. using Travis CI.
 
-At the moment, I still need to manually create a release in Github, and then push a commit to trigger a build in Travis. The next improvement might be to have a monitor script that checks the upstream distribution for changes, then automatically creates a new build and release.
+At the moment, I still need to manually create a release in Github, and then push a commit to trigger a build in Travis. The next improvement might be to have a monitor script that checks the upstream distribution for changes, then automatically creates a new build and a release.
 
-Until then, current releases can be found here: https://github.com/andrewboring/alarm-images/releases
-And the source repo can be found here: https://github.com/andrewboring/alarm-images
+Current releases can be found here: https://github.com/andrewboring/alarm-images/releases
+Source repo (to build yourself) can be found here: https://github.com/andrewboring/alarm-images

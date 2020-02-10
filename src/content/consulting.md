@@ -1,6 +1,8 @@
 Title: Consulting
 Date: 2019-09-15
 Category: self-promo
+Status: draft
+
 
 Need help with a tech project?
 Here are a few things I can help you with.

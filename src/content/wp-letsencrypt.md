@@ -17,12 +17,13 @@ subdomain.example2.com -> /var/www/subdomain-example2
 
 Why not point all requests for /.well-known/acme-challenge validation, irrespective of domain, a single directory that certbot can write to?  
 
-**Assumptions:**
-Apache web server
+**Assumptions:**  
+Apache web server  
 ModAlias
 ModSSL
+Certbot
 
-I used CentOS 7 and Apache on a single-tenant system, so your particular config will need to be adjusted if you're trying this on cPanel or similar.
+I used CentOS 7 and Apache on a single-tenant system, so your particular config will need to be adjusted if you're trying this on something like cPanel.
 
 
 In your webroot, create the validation directory. Certbot will write all challenge files here.
@@ -30,7 +31,7 @@ In your webroot, create the validation directory. Certbot will write all challen
 # mkdir -p /var/www/html/.well-known/acme-challenge
 ```
 
-**Default** Apache Virtualhost (Wordpress) Config
+**Default** Apache Virtualhost Config for Wordpress Multi-site
 Apache will read all .conf files in alphabetical order, and the very first Virtualhost configuration in that order will be the "default" vhost served if none other matches. This is important to know if Wordpress coexists with other web applications. If you're only running Wordpress Multisite and nothing else, you can put this in your httpd.conf file or in a separate virtualhost config. If you have many applications, I'd recommend naming this 00-default.conf or similar to ensure that it is the first one read by Apache (the number "0" comes before the letter "a" in computing).
 
 ```

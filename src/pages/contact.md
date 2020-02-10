@@ -2,13 +2,14 @@ Title: Contact
 Date: 2019-09-15
 
 
-It's 2019, Grandpa! Who uses contact forms these days?
+It's 2020, Grandpa! Who uses contact forms these days?
 
 
-### Contact me through Social Media:
-Use the links in the Sidebar to the left.
+
+#### Through Social Media:
+Look toward the bottom of every page.
 
 
-### Contact me through Direct Chat:
+#### Through Direct Chat:
 Use the "Send a message" button the lower-right corner.  
 If I'm not online, include your email address for follow-up or check back for reply.

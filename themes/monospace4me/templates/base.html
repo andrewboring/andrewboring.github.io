@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
         <title>{% block title %}{{ SITENAME }}{%endblock%}</title>
-        <meta charset="utf-8" /> <link rel="stylesheet" href="{{ SITEURL }}/theme/css/{{ CSS_FILE }}" type="text/css" />
+        <!-- <meta charset="utf-8" /> <link rel="stylesheet" href="{{ SITEURL }}/theme/css/{{ CSS_FILE }}" type="text/css" /> -->
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+        <!--<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" /-->
+
+        <link rel="stylesheet" href="{{ SITEURL }}/theme/css/override.css" type="text/css" />
+
         <link href="{{ SITEURL }}/{{ FEED }}" type="application/atom+xml" rel="alternate" title="{{ SITENAME }} ATOM Feed" />
         {% if FEED_RSS %}
-        <link href="{{ SITEURL }}/{{ FEED_RSS }}" type="application/atom+xml" rel="alternate" title="{{ SITENAME }} RSS Feed" />
+         <link href="{{ SITEURL }}/{{ FEED_RSS }}" type="application/atom+xml" rel="alternate" title="{{ SITENAME }} RSS Feed" />
         {% endif %}
 
         <!--[if IE]>
@@ -22,81 +29,128 @@
 
 </head>
 
+
 <body>
-  	<div id="wrap" style="width:1024px">
-	      <div id="container" style="width:700px">
-            {% include 'github.html' %}
-
-            <div class="entry">
-                {% block content %}
-                {% endblock %}
+  <section id="header">
+    <div class="container">
+      <div class="row">
+        <div class="col">
+          <div class="jumbotron px-0 py-0 my-3 mx-0">
+            <div class="card card-header py-5">
+              <h1><a href="{{ SITEURL }} " title="title">{{ SITENAME }}</a></h1>
+              <span class="description">{{ DESCRIPTION }}</span>
             </div>
+          </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="content">
+    <!-- div class="container mt-5 mb-2"-->
+    <div class="container">
+    {% block content %}
+    {% endblock %}
+    </div>
+  </section>
 
 
+    <section id="bottom">
+    <div class="container">
 
-        <div id="sidebar">
-            <h1><a href="{{ SITEURL }} " title="title">{{ SITENAME }}</a></h1>
-            <span class="description">{{ DESCRIPTION }} </span>
-            <!-- <span class="feed"><a href="">RSS</a> | <a href="">Atom</a></span> -->
-
-			      <p>&nbsp;</p>
-            <nav>
-				          <h2>Pages</h2>
+      <div class="row row-cols-1 row-cols-md-3 mb-4">
+          <div class="col">
+            <div class="card h-100">
+				        <div class="card-header">
+                  <h4>Pages</h4>
+                </div>
+                <div class="card-body">
                   <ul>
-                {% for page in pages %}
+                    {% for page in pages %}
                     <li><a href="{{ SITEURL }}/{{ page.url }}">{{ page.title }}</a>{% if not loop.last %} {% endif %}</li>
-                {% endfor %}
-                </ul>
-            </nav>
+                    {% endfor %}
+                  </ul>
+                </div>
+            </div>
+          </div>
 
-	        {% if LINKS %}
-                <div class="widget blogroll">
-                        <h2>Links</h2>
-                        <ul>
-                        {% for name, link in LINKS %}
-                            <li><a href="{{ link }}">{{ name }}</a></li>
-                        {% endfor %}
-                        </ul>
-                </div><!-- /.blogroll -->
+
+	         {% if LINKS %}
+           <div class="col">
+              <div class="card h-100">
+                <div class="card-header">
+                    <h4>Links</h4>
+                </div>
+                  <div class="card-body">
+                    <ul>
+                    {% for name, link in LINKS %}
+                      <li><a href="{{ link }}">{{ name }}</a></li>
+                    {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
    		     {% endif %}
+
        		 {% if SOCIAL %}
-                <div class="widget social">
-                        <h2>Social</h2>
+           <div class="col">
+               <div class="card h-100">
+                   <div class="card-header">
+                        <h4>Social</h4>
+                  </div>
+                  <div class="card-body">
                         <ul>
                         {% for name, link in SOCIAL %}
                             <li><a href="{{ link }}">{{ name }}</a></li>
                         {% endfor %}
                         </ul>
+                  </div>
                	</div>
+            </div>
           	{% endif %}
 
-
-            <div class="widget blogroll">
-                <h2>Data</h2>
-                <ul>
-                    <li><a href="{{ SITEURL }}/sitemap.xml">sitemap</a></li>
-                    <li><a href="{{ SITEURL }}/{{ FEED_ALL_ATOM }}" rel="alternate">atom feed</a></li>
-                    {% if FEED_RSS %}
-                    <li><a href="{{ SITEURL }}/{{ FEED_RSS }}" rel="alternate">rss feed</a></li>
+            <div class="col">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h4>Data</h4>
+                </div>
+                  <div class="card-body">
+                    <ul>
+                    <li><a href="{{ SITEURL }}/{{ INDEX_SAVE_AS }}">All content</a></li>
+                    <li><a href="{{ SITEURL }}/sitemap.xml">Sitemap</a></li>
+                    <li><a href="{{ SITEURL }}/{{ FEED_ALL_ATOM }}" rel="alternate">Atom feed</a></li>
+                    {% if FEED_ALL_RSS %}
+                    <li><a href="{{ SITEURL }}/{{ FEED_ALL_RSS }}" rel="alternate">RSS feed</a></li>
                     {% endif %}
-                </ul>
+                  </ul>
+                </div>
+              </div>
             </div>
 
-		    </div>
+          </div>
+      </div>
+</section>
+<section id="footer">
 
-		    <div id="footer">
-        	<div id="credits">
-           		 <span></span>
-       		 </div>
-      	 </div>
+          <div class="row footer" id="copyright">
 
-    {% include 'analytics.html' %}
-    {% include 'piwik.html' %}
-    {% include 'disqus_script.html' %}
+           		  <div class="container text-center">
+                  <p class="mt-4">&copy Copyright Andrew Boring 2020<br>
+                    All Hail Discordia!</p>
+                </div>
 
-    </div>
+          </div>
 
-<script src="https://embed.small.chat/T69NDBZ7DG6AMU0S14.js" async></script>
+</section>
+{% include 'analytics.html' %}
+{% include 'piwik.html' %}
+{% include 'disqus_script.html' %}
+<!-- <script src="https://embed.small.chat/T69NDBZ7DG6AMU0S14.js" async></script> -->
+<!-- Optional JavaScript -->
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+</div>
 </body>
 </html>

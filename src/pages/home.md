@@ -8,4 +8,5 @@ status: hidden
 Home: yes
 Template: home
 
-This is my website. It serves as a blog and a portfolio, mostly.
+Behold, my website!
+It's a blog and a portfolio, mostly.
