@@ -23,4 +23,4 @@ Benefits to you:
 
 - Static content can be more secure. Fewer attack vectors for a bad actor to upload malicious content for distribution.
 - Static content can be served faster than database-driven, dynamic content. There is no need for web-applications to drive stateless content.
-- I can focus on my career
+- I can focus on NOT having to wrangle Wordpress into doing crap it was never designed to do.

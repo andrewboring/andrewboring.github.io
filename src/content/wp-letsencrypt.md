@@ -1,11 +1,9 @@
-Title: Let's Encrypt with Multisite Wordpress
+Title: Let's Encrypt with Wordpress Multisite
 Date: 2019-10-03
 Slug: wp-letsencrypt
 Category: weblog
 Tags: tech, apache, httpd, wordpress, letsencrypt
-Status: draft
 
-At one time, I ran a Wordpress Multisite configuration with multiple domains served out of a single webroot, and wanted to enable https for each managed site.
 
 With Wordpress Multisite on a single webroot (eg, /var/www/html), we can define multiple domain namespaces and point them at any internal directory structure we want. That is, we can easily configure Apache such that a request for the domain/path goes anywhere on the server:
 
@@ -15,15 +13,17 @@ example.com/path2 -> /home/data/path2
 example2.com -> /var/www/html/example2  
 subdomain.example2.com -> /var/www/subdomain-example2  
 
-Why not point all requests for /.well-known/acme-challenge validation, irrespective of domain, a single directory that certbot can write to?  
+For letsencrypt, let's point all requests for /.well-known/acme-challenge validation - *irrespective of the domain* - to a single directory that certbot can write to. That means we do not have to run a separate validation for each domain renewal, and we don't have to stop/start the web server so Certbot can respond to the the challenge independently (and don't even *think* about futzing with TXT records for DNS validation).
 
-**Assumptions:**  
+**Assumptions:**
+Single-tenant host system (VPS, physical server, EC2 instance, etc, NOT cPanel shared hosting)
 Apache web server  
 ModAlias
 ModSSL
 Certbot
 
-I used CentOS 7 and Apache on a single-tenant system, so your particular config will need to be adjusted if you're trying this on something like cPanel.
+
+I used CentOS 7 and Apache on a single virtual machine instance for this.
 
 
 In your webroot, create the validation directory. Certbot will write all challenge files here.
@@ -32,18 +32,22 @@ In your webroot, create the validation directory. Certbot will write all challen
 ```
 
 **Default** Apache Virtualhost Config for Wordpress Multi-site
-Apache will read all .conf files in alphabetical order, and the very first Virtualhost configuration in that order will be the "default" vhost served if none other matches. This is important to know if Wordpress coexists with other web applications. If you're only running Wordpress Multisite and nothing else, you can put this in your httpd.conf file or in a separate virtualhost config. If you have many applications, I'd recommend naming this 00-default.conf or similar to ensure that it is the first one read by Apache (the number "0" comes before the letter "a" in computing).
+Apache will read all .conf files in alphabetical order, and the very first Virtualhost configuration in that order will be the "default" vhost served for a hostname if none other matches. Name this  file 00-default.conf or similar to ensure that it is the first one read by Apache (the number "0" comes before the letter "a" in computing) if you have other sites served by Apache.
 
 ```
 [root@s html]# cat /etc/httpd/conf.d/00-default.conf
 
+# This rewrites configures all requests to a single challenge root.
 AliasMatch ^/.well-known/acme-challenge/(.*)$ /var/www/html/.well-known/acme-challenge/$1
+
 
 SSLStrictSNIVHostCheck off
 
+# I run Wordpress [grudgingly] out of the wp directory.
+# I keep a few host-specific files under /var/www/html.
+
 <VirtualHost 198.51.100.57:80>
  ServerName example.com
- #ServerAlias *.example.com
  DocumentRoot /var/www/html/wp
  ServerAdmin goaway@example.com
  ErrorLog logs/example.com-error_log
@@ -76,13 +80,14 @@ When it's time to run certbot, use something like this:
 certbot certonly --webroot -w /var/www/html --cert-name example.com \  
   -d example.com -d www.example.com \  
   -d example2.com -d www.example2.com \  
-  -d example3.com -d www.example3.com \   
+  -d example3.com -d www.example3.com --dry-run
 ```
 
 I spread this across four lines for readability, but this is entered as one line.
 
 * The certonly directive tells certbot not to mess with our web server config.
 * --webroot means use the webroot challenge, not DN
-* -w tells us the main webroot where it can find the .well-known directory to write the challenge files.
+* -w tells us the main webroot where it can find the /.well-known directory to write the challenge files.
 * --cert-name is the primary cert for the wordpress multisite. Here, it's example.com.
 * -d [domain] adds the domain(s) to the certificate.
+* --dry-run uses EFF's test servers, rather than slamming their production servers with failed requests causing them to rate-limit you to prevent a denial-of-service attack.
