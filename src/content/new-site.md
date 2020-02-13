@@ -16,7 +16,8 @@ Benefits to me:
 - I can use Javascript for any interactivity, or to interface with API-based backends.
 - Unlike Wordpress, I just *write*. I don't have to use some editor named "Gutenberg."
 
-![The Gutes!]({static}/media/steve-guttenberg.jpg)*This doesn't look like a Wordpress editor.*
+![The Gutes!]({static}/media/steve-guttenberg.jpg)
+*This doesn't look like a Wordpress editor.*
 
 Benefits to you:
 
