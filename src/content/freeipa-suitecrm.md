@@ -1,7 +1,6 @@
 Title: SuiteCRM LDAP Authentication Using FreeIPA
 Date: 2019-09-15
 Category: weblog
-Status: draft
 Tags: technotes, ldap, freeipa, suitecrm
 
 SuiteCRM LDAP Authentication Using FreeIPA.
