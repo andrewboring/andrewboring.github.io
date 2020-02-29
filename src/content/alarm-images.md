@@ -18,10 +18,11 @@ Except...the smallest conventional card you can bu y these days is 32GB. The 8GB
 The solution is prepared 8GB image files, built directly from the upstream Arch Linux ARM projects distribution files.
 
 This is easy enough on Linux; but if you're using macOS, working with Arch Linux-based systems is challenging at best:
+
 - Creating BIOS partitions on UEFI/GPT Macs is a pain, and even more so on raw image files.
 - No [official] macOS support for Ext4 file systems. Third-party / FUSE options only.
 - Arch uses extended attributes in the bsdtar program, which is not the same as BSD tar, apparently, and certainly not GNU tar. I still don't get this one, personally.
-- Seting up nullfs (bind mounts in the Linux world) using the loopback device is not well documented on macOS.
+- Setting up nullfs ("bind mounts" in the Linux world) using the loopback device is not well documented on macOS.
 
 The simplest solution I found to create images is to use Vagrant+Virtualbox to spin up an Arch Linux virtual machine (any other distro will work, too), create the image file, mount it via loop dev, and then download/unpack the tarball into the image file via the bind mounts. After than, you can unmount the image file, copy it off somewhere, and destroy the Vagrant box. [This blog post](https://disconnected.systems/blog/raspberry-pi-archlinuxarm-setup/) has the details, as I just modified from his guide.
 
@@ -29,7 +30,7 @@ The simplest solution I found to create images is to use Vagrant+Virtualbox to s
 
 However, I wanted to update these images periodically and hate Hate HATE!!! repetitive, manual tasks. I know I would let this crap get way out of date if I a) wasn't getting paid to pay attention to it and b) if I can get along without doing the extra work. I'm just lazy that way.
 
-Happily, Disconnected Systems [solved this one](https://disconnected.systems/blog/custom-rpi-image-with-github-travis/), too, and after a bit of tinkering, I now have a working source repo that allows me to a) build images locally using Vagrant and b) automatically build and deploy releases directly to Github. using Travis CI.
+Happily, Disconnected Systems [solved this one](https://disconnected.systems/blog/custom-rpi-image-with-github-travis/), too, and after a bit of tinkering, I now have a working source repo that allows me to a) build/test images locally using Vagrant and b) automatically build/test/deploy releases directly to Github using Travis CI.
 
 At the moment, I still need to manually create a release in Github, and then push a commit to trigger a build in Travis. The next improvement might be to have a monitor script that checks the upstream distribution for changes, then automatically creates a new build and a release.
 
