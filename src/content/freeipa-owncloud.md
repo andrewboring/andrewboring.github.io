@@ -1,5 +1,5 @@
 Title: OwnCloud LDAP Authentication Using FreeIPA
-Date: 2019-09-15
+Date: 2020-02-29
 Category: weblog
 Tags: technotes, ldap, freeipa, owncloud
 
