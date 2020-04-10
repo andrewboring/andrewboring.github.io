@@ -10,4 +10,4 @@ This site is generated using the [Pelican](https://getpelican.com) static site g
 
 [Site theme](#) was originally adapted from [monospace](https://github.com/getpelican/pelican-themes/tree/master/monospace), but later restyled using [Bootstrap](https://getbootstrap.com).
 
-The content is organized to showcase my work, by aggregating content from other sources I contribute to. I also post occasional [weblog](https://andrewboring.com/categories/weblog.html) content directly here.
+The content is organized to showcase my work, by aggregating content from other sources I contribute to. I also post occasional [weblog](https://andrewboring.com/content/weblog.html) content directly here.
