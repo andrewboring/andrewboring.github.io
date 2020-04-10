@@ -3,7 +3,6 @@ Date: 2020-04-06
 Slug: xfs-recovery
 Category: weblog
 Tags: tech, xfs, data recovery
-Status: Draft
 
 Monday morning.  
 I should stop right there, really. That tells you everything you need to know.
