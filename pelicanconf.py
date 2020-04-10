@@ -46,6 +46,7 @@ TAGLINES = ['There are  many Andrews in this world, but only I am Boring.',
 # +++ Andrew's Settings
 PATH = '~/dev/andrewboring.github.io/src'
 DISPLAY_CATEGORIES_ON_MENU = False
+CATEGORY_URL = 'content/{slug}.html'
 CATEGORY_SAVE_AS = 'content/{slug}.html'
 ARTICLE_PATHS = ['content']
 INDEX_SAVE_AS = 'content/index.html'
