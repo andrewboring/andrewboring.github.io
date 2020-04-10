@@ -15,14 +15,15 @@ Rebooted, and found that the main RAID-1 mirror (hosting the primary OS, cPanel,
 
 Entered system RAID utility. Disk 2 was marked as offline, and configuration was marked "Foreign" instead of "Degraded".
 
-I restarted server and entered the RAID utility again, removed failed Disk 2 drive, replaced with new Disk 2 from another server, but not similar enough for the PERC card to allow it to be used as replacement to rebuild the mirror. Still marked "Foreign".
+I removed failed Disk 2 drive, replaced with new Disk 2 from another server, but it wasn't similar enough for the PERC card to allow it to be used as replacement to rebuild the mirror. Still marked "Foreign".
 
 I tried re-seating the original Disk 2, and eventually found the "Clear Foreign Configuration" option (not to be confused with the more prominent "Clear Configuration" option, which wipes everything including the other RAID mirrors installed on the server). It started "rebuilding" disk 1. WTF? I don't want to rebuild Disk 1 from failed Disk 2!
 
 Reboot, since there's no "stop" button.
 
 Recreated mirror with just Disk 1, but did not initialize.
-Rebooted and it booted up into OS/cPanel, but apparently the files were dated from 2017 and the disk 1 was not being mirrored since then. The presumption is that the failed disk 2 was receiving the writes and had the current files.
+
+Rebooted and it booted up into OS/cPanel, but apparently the files were dated from 2017 and Disk 1 was not being mirrored since then. My assumption is that the failed disk 2 was receiving all the writes from the RAID controller and had the current files.
 
 Anyway, time to recover.
 
@@ -48,12 +49,12 @@ High-level steps:
     - xfs_repair -L /dev/loop0
     - mount /dev/loop0 /mnt
     - check the damage
-6. If that doesn't work, you can try xfs_repair -L directly on the affected partition, but don't forget to pray to your deity of choice.
+6. If that doesn't work, you can try xfs_repair -L directly on the affected partition, but not before you pray to your deity of choice.
 
-Because macOS sucks for working with non-Apple partitions/data, I used a Raspberry Pi 3B+ running Arch Linux. I connected the SATA drive to a SATA-to-USB adapter, and attached a second external USB drive for copying data to.
+Since macOS sucks for working with non-Apple partitions/data, I used a Raspberry Pi 3B+ running Arch Linux. I connected the SATA drive to a SATA-to-USB adapter, and later attached a second external USB drive for copying data to.
 
-Plugged in the bad drive. Registers as /dev/sda.
-Taking a look at the partitions and try to mount it:
+Plugged in the bad drive first. Registers as /dev/sda.
+Take a look at the partitions and try to mount it:
 
 ```
 [root@alarmpi ~]# fdisk -l /dev/sda
