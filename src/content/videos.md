@@ -6,8 +6,8 @@ Category: self-promo
 A selection of video featuring yours truly.
 
 
-## SwiftStack Cassandra Integration Demo (no audio)
-*This was a technical demo I created for the SwiftStack Systems Engineering team for using SwiftStack as a Cassandra keyspace backups.  
+## SwiftStack Cassandra Integration Demo
+This was a technical demo I created for the SwiftStack Systems Engineering team for using SwiftStack as a Cassandra keyspace backups.  
 <video id="" class="video-js vjs-default-skin" controls
 preload="auto" width="683" height="384" poster=""
 data-setup="{}">
