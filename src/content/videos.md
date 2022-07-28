@@ -5,22 +5,68 @@ Category: self-promo
 
 A selection of video featuring yours truly.
 
-## Internap Marketing Videos
+
+## SwiftStack Cassandra Integration Demo (no audio)
+*This was a technical demo I created for the SwiftStack Systems Engineering team for using SwiftStack as a Cassandra keyspace backups.  
+<video id="" class="video-js vjs-default-skin" controls
+preload="auto" width="683" height="384" poster=""
+data-setup="{}">
+<source src="https://d19pl2q67l2eit.cloudfront.net//SwiftStack+Cassandra+Backup+Demo.mp4">
+</video>
+
+## Internap Marketing Videos  
+*Note: The original YouTube videos have been marked "private" by the company's new owners. The videos below are copies.*
 
 ### Ask the Expert: OpenStack and its Advantages
-{% youtube 25kdUPunFc8 426 240 %}
+<video id="" class="video-js vjs-default-skin" controls
+preload="auto" width="683" height="384" poster=""
+data-setup="{}">
+<source src="https://d19pl2q67l2eit.cloudfront.net/Ask+the+Expert+OpenStack+and+its+Advantages.mp4">
+</video>
+
+
 
 ### Bare-Metal AgileSERVER Powered by OpenStack
-{% youtube kqgsMG_t1Xg 426 240 %}
+<video id="" class="video-js vjs-default-skin" controls
+preload="auto" width="683" height="384" poster=""
+data-setup="{}">
+<source src="https://d19pl2q67l2eit.cloudfront.net/Bare-Metal+AgileSERVER+Powered+by+OpenStack.mp4">
+</video>
+
+
 
 ### Open Source Cloud and its Advantages
-{% youtube pchmgpXFepk 426 240 %}
+<video id="" class="video-js vjs-default-skin" controls
+preload="auto" width="683" height="384" poster=""
+data-setup="{}">
+<source src="https://d19pl2q67l2eit.cloudfront.net/Open+Source+Cloud+and+its+Advantages.mp4">
+</video>
+
+
 
 ### OpenStack Bare-Metal AgileSERVERs Beta
-{% youtube 60X4xP2yD-0 426 240 %}
+<video id="" class="video-js vjs-default-skin" controls
+preload="auto" width="683" height="384" poster=""
+data-setup="{}">
+<source src="https://d19pl2q67l2eit.cloudfront.net/OpenStack+Bare-Metal+AgileSERVERs+Beta.mp4">
+</video>
+
+
 
 ### Backups and Backup Strategies
-{% youtube 7_JHL-svcok 426 240 %}
+<video id="" class="video-js vjs-default-skin" controls
+preload="auto" width="683" height="384" poster=""
+data-setup="{}">
+<source src="https://d19pl2q67l2eit.cloudfront.net/Backups+and+Backup+Strategies.mp4">
+</video>
+
+
 
 ### Horizontal vs Vertical Scaling
-{% youtube NdZ3y6jK_Sc 426 240 %}
+<video id="" class="video-js vjs-default-skin" controls
+preload="auto" width="683" height="384" poster=""
+data-setup="{}">
+<source src="https://d19pl2q67l2eit.cloudfront.net/Vertical+vs.+Horizontal+Scaling.mp4">
+</video>
+
+
