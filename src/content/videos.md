@@ -11,7 +11,7 @@ This was a technical demo I created for the SwiftStack Systems Engineering team 
 <video id="" class="video-js vjs-default-skin" controls
 preload="auto" width="683" height="384" poster=""
 data-setup="{}">
-<source src="https://d19pl2q67l2eit.cloudfront.net//SwiftStack+Cassandra+Backup+Demo.mp4">
+<source src="https://d19pl2q67l2eit.cloudfront.net/SwiftStack+Cassandra+Backup+Demo.mp4">
 </video>
 
 ## Internap Marketing Videos  
