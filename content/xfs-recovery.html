@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <title>Andrew Boring : Recovering Data From XFS</title>
+        <!-- <meta charset="utf-8" /> <link rel="stylesheet" href="../theme/css/main.css" type="text/css" /> -->
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+        <!--<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" /-->
+
+        <link rel="stylesheet" href="../theme/css/override.css" type="text/css" />
+
+        <link href="../" type="application/atom+xml" rel="alternate" title="Andrew Boring ATOM Feed" />
+
+        <!--[if IE]>
+                <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+        <!--[if lte IE 7]>
+                <link rel="stylesheet" type="text/css" media="all" href="../css/ie.css"/>
+                <script src="../js/IE8.js" type="text/javascript"></script><![endif]-->
+
+        <!--[if lt IE 7]>
+                <link rel="stylesheet" type="text/css" media="all" href="../css/ie6.css"/><![endif]-->
+
+		<link rel="stylesheet" href="../theme/css/youtube.css" type="text/css" />
+
+</head>
+
+
+<body>
+  <section id="header">
+    <div class="container">
+      <div class="row">
+        <div class="col">
+          <div class="jumbotron px-0 py-0 my-3 mx-0">
+            <div class="card card-header py-5">
+              <h1><a href=".. " title="title">Andrew Boring</a></h1>
+              <span class="description">There are many Andrews in this world, but only I am Boring.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="content">
+    <!-- div class="container mt-5 mb-2"-->
+    <div class="container">
+
+
+
+  <div class="row row-cols-1 mb-4 mt-0">
+    <div class="col">
+
+        <div class="panel-header back mb-4">
+          <h2><a href="../content/xfs-recovery.html" id="page-title">Recovering Data From XFS</a></h2>
+            <time datetime=s"2020-04-06T00:00:00-04:00">Mon 06 April 2020</time><br />
+        <a href="../index.html">Return to Launch Page</a>
+        </div>
+        <div class="panel-body p-3">
+          <p>Monday morning.<br>
+I should stop right there, really. That tells you everything you need to know.</p>
+<p>But to continue the narrative, I had to deal with a server whose RAID-1 mirror crapped itself.
+It's a legacy server, running some old legacy stuff that hadn't been converted to a more scalable, cloud-like service. I asked the data center techs to hook up a remote IP-KVM so I could get eyes on it, but Lantronix Java + macOS is an exercise in futility and frustration.</p>
+<p>The server was inaccessible from console (using crash cart) when I arrived at the data center.
+Rebooted, and found that the main RAID-1 mirror (hosting the primary OS, cPanel, and accounts) was marked as a "Foreign" configuration by the Dell PERC card.</p>
+<p>Entered system RAID utility. Disk 2 was marked as offline, and configuration was marked "Foreign" instead of "Degraded".</p>
+<p>I removed failed Disk 2 drive, replaced with new Disk 2 from another server, but it wasn't similar enough for the PERC card to allow it to be used as replacement to rebuild the mirror. Still marked "Foreign".</p>
+<p>I tried re-seating the original Disk 2, and eventually found the "Clear Foreign Configuration" option (not to be confused with the more prominent "Clear Configuration" option, which wipes everything including the other RAID mirrors installed on the server). It started "rebuilding" disk 1. WTF? I don't want to rebuild Disk 1 from failed Disk 2!</p>
+<p>Reboot, since there's no "stop" button.</p>
+<p>Recreated mirror with just Disk 1, but did not initialize.</p>
+<p>Rebooted and it booted up into OS/cPanel, but apparently the files were dated from 2017 and Disk 1 was not being mirrored since then. My assumption is that the failed disk 2 was receiving all the writes from the RAID controller and had the current files.</p>
+<p>Anyway, time to recover.</p>
+<hr>
+<p>High-level steps:</p>
+<ol>
+<li>Use xfs_repair -n to check without modification, like fsck -n.</li>
+<li>Try to use xfs_repair to fix.</li>
+<li>If prompted to mount the partition to replay the log, unmount, and then re-run xfs_repair, try that. But you're probably in this situation because you <em>can't</em> mount the filesystem.</li>
+<li>If prompted to run with -L to delete the log (a destructive, last-resort operation), try to test it on a copy of the metadata first.<ul>
+<li>xfs_metadump [partition] /path/to/file.metadump</li>
+<li>xfs_mdrestore /path/to/file.metadump /path/to/file.img</li>
+<li>losetup --show --find /path/to/file.img</li>
+<li>xfs_repair -L /dev/loop0</li>
+<li>mount /dev/loop0 /mnt</li>
+<li>check the damage</li>
+<li>(note, this is an image of file system layout, but not the actual data)</li>
+</ul>
+</li>
+<li>Finally, copy the partition data to an image file using ddrescue, and then try to repair the copy.<ul>
+<li>ddrescue -f -n [partition] /path/to/rescued.img rescue.log</li>
+<li>ddrescue -d -f -r3 [partition] /path/to/rescued.img rescue.log</li>
+<li>losetup --show --find /path/to/rescued.img</li>
+<li>xfs_repair -L /dev/loop0</li>
+<li>mount /dev/loop0 /mnt</li>
+<li>check the damage</li>
+</ul>
+</li>
+<li>If that doesn't work, you can try xfs_repair -L directly on the affected partition, but not before you pray to your deity of choice.</li>
+</ol>
+<p>Since macOS sucks for working with non-Apple partitions/data, I used a Raspberry Pi 3B+ running Arch Linux. I connected the SATA drive to a SATA-to-USB adapter, and later attached a second external USB drive for copying data to.</p>
+<p>Plugged in the bad drive first. Registers as /dev/sda.
+Take a look at the partitions and try to mount it:</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">fdisk</span><span class="w"> </span><span class="o">-</span><span class="n">l</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sda</span><span class="w"></span>
+<span class="k">Disk</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nl">sda</span><span class="p">:</span><span class="w"> </span><span class="mf">149.5</span><span class="w"> </span><span class="n">GiB</span><span class="p">,</span><span class="w"> </span><span class="mi">160041885696</span><span class="w"> </span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="mi">312581808</span><span class="w"> </span><span class="n">sectors</span><span class="w"></span>
+<span class="k">Disk</span><span class="w"> </span><span class="nl">model</span><span class="p">:</span><span class="w"> </span><span class="mi">00</span><span class="n">AAJS</span><span class="o">-</span><span class="mi">60</span><span class="n">PSA0</span><span class="w">   </span>
+<span class="nl">Units</span><span class="p">:</span><span class="w"> </span><span class="n">sectors</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">512</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">512</span><span class="w"> </span><span class="n">bytes</span><span class="w"></span>
+<span class="n">Sector</span><span class="w"> </span><span class="k">size</span><span class="w"> </span><span class="p">(</span><span class="n">logical</span><span class="o">/</span><span class="n">physical</span><span class="p">)</span><span class="err">:</span><span class="w"> </span><span class="mi">512</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">512</span><span class="w"> </span><span class="n">bytes</span><span class="w"></span>
+<span class="n">I</span><span class="o">/</span><span class="n">O</span><span class="w"> </span><span class="k">size</span><span class="w"> </span><span class="p">(</span><span class="n">minimum</span><span class="o">/</span><span class="n">optimal</span><span class="p">)</span><span class="err">:</span><span class="w"> </span><span class="mi">512</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">512</span><span class="w"> </span><span class="n">bytes</span><span class="w"></span>
+<span class="n">Disklabel</span><span class="w"> </span><span class="nl">type</span><span class="p">:</span><span class="w"> </span><span class="n">dos</span><span class="w"></span>
+<span class="k">Disk</span><span class="w"> </span><span class="nl">identifier</span><span class="p">:</span><span class="w"> </span><span class="mh">0x00070f16</span><span class="w"></span>
+
+<span class="n">Device</span><span class="w">     </span><span class="n">Boot</span><span class="w">   </span><span class="k">Start</span><span class="w">       </span><span class="k">End</span><span class="w">   </span><span class="n">Sectors</span><span class="w">  </span><span class="k">Size</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">Type</span><span class="w"></span>
+<span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sda1</span><span class="w">  </span><span class="o">*</span><span class="w">       </span><span class="mi">2048</span><span class="w">   </span><span class="mi">1026047</span><span class="w">   </span><span class="mi">1024000</span><span class="w">  </span><span class="mi">500</span><span class="n">M</span><span class="w"> </span><span class="mi">83</span><span class="w"> </span><span class="n">Linux</span><span class="w"></span>
+<span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sda2</span><span class="w">       </span><span class="mi">1026048</span><span class="w"> </span><span class="mi">311427071</span><span class="w"> </span><span class="mi">310401024</span><span class="w">  </span><span class="mi">148</span><span class="n">G</span><span class="w"> </span><span class="mi">8</span><span class="n">e</span><span class="w"> </span><span class="n">Linux</span><span class="w"> </span><span class="n">LVM</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sda2</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="w"></span>
+<span class="nl">mount</span><span class="p">:</span><span class="w"> </span><span class="o">/</span><span class="nl">mnt</span><span class="p">:</span><span class="w"> </span><span class="k">unknown</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">type</span><span class="w"> </span><span class="s1">&#39;LVM2_member&#39;</span><span class="p">.</span><span class="w"></span>
+</pre></div>
+
+
+<p>Oh, right. LVM volume. Duh.
+Let's install LVM tools.</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">pacman</span><span class="w"> </span><span class="o">-</span><span class="n">S</span><span class="w"> </span><span class="n">lvm2</span><span class="w"></span>
+<span class="n">resolving</span><span class="w"> </span><span class="n">dependencies</span><span class="p">...</span><span class="w"></span>
+<span class="n">looking</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">conflicting</span><span class="w"> </span><span class="n">packages</span><span class="p">...</span><span class="w"></span>
+
+<span class="n">Packages</span><span class="w"> </span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="n">libaio</span><span class="o">-</span><span class="mf">0.3.112</span><span class="o">-</span><span class="mi">2</span><span class="w">  </span><span class="n">thin</span><span class="o">-</span><span class="n">provisioning</span><span class="o">-</span><span class="n">tools</span><span class="o">-</span><span class="mf">0.8.5</span><span class="o">-</span><span class="mi">3</span><span class="w">  </span><span class="n">lvm2</span><span class="o">-</span><span class="mf">2.02.186</span><span class="o">-</span><span class="mi">5</span><span class="w"></span>
+
+<span class="n">Total</span><span class="w"> </span><span class="n">Download</span><span class="w"> </span><span class="k">Size</span><span class="err">:</span><span class="w">   </span><span class="mf">1.51</span><span class="w"> </span><span class="n">MiB</span><span class="w"></span>
+<span class="n">Total</span><span class="w"> </span><span class="n">Installed</span><span class="w"> </span><span class="k">Size</span><span class="err">:</span><span class="w">  </span><span class="mf">7.30</span><span class="w"> </span><span class="n">MiB</span><span class="w"></span>
+
+<span class="o">::</span><span class="w"> </span><span class="n">Proceed</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">installation</span><span class="vm">?</span><span class="w"> </span><span class="o">[</span><span class="n">Y/n</span><span class="o">]</span><span class="w"> </span><span class="n">y</span><span class="w"></span>
+<span class="o">::</span><span class="w"> </span><span class="n">Retrieving</span><span class="w"> </span><span class="n">packages</span><span class="p">...</span><span class="w"></span>
+<span class="w"> </span><span class="n">libaio</span><span class="o">-</span><span class="mf">0.3.112</span><span class="o">-</span><span class="mi">2</span><span class="o">-</span><span class="n">armv7h</span><span class="w">                                               </span><span class="mf">6.0</span><span class="w"> </span><span class="n">KiB</span><span class="w">   </span><span class="mi">604</span><span class="w"> </span><span class="n">KiB</span><span class="o">/</span><span class="n">s</span><span class="w"> </span><span class="mi">00</span><span class="err">:</span><span class="mi">00</span><span class="w"> </span><span class="o">[</span><span class="n">########################################################</span><span class="o">]</span><span class="w"> </span><span class="mi">100</span><span class="o">%</span><span class="w"></span>
+<span class="w"> </span><span class="n">thin</span><span class="o">-</span><span class="n">provisioning</span><span class="o">-</span><span class="n">tools</span><span class="o">-</span><span class="mf">0.8.5</span><span class="o">-</span><span class="mi">3</span><span class="o">-</span><span class="n">armv7h</span><span class="w">                              </span><span class="mf">326.1</span><span class="w"> </span><span class="n">KiB</span><span class="w">  </span><span class="mf">3.18</span><span class="w"> </span><span class="n">MiB</span><span class="o">/</span><span class="n">s</span><span class="w"> </span><span class="mi">00</span><span class="err">:</span><span class="mi">00</span><span class="w"> </span><span class="o">[</span><span class="n">########################################################</span><span class="o">]</span><span class="w"> </span><span class="mi">100</span><span class="o">%</span><span class="w"></span>
+<span class="nl">error</span><span class="p">:</span><span class="w"> </span><span class="n">failed</span><span class="w"> </span><span class="n">retrieving</span><span class="w"> </span><span class="k">file</span><span class="w"> </span><span class="s1">&#39;lvm2-2.02.186-5-armv7h.pkg.tar.xz&#39;</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="n">fl</span><span class="p">.</span><span class="n">us</span><span class="p">.</span><span class="n">mirror</span><span class="p">.</span><span class="n">archlinuxarm</span><span class="p">.</span><span class="n">org</span><span class="w"> </span><span class="err">:</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">requested</span><span class="w"> </span><span class="n">URL</span><span class="w"> </span><span class="n">returned</span><span class="w"> </span><span class="nl">error</span><span class="p">:</span><span class="w"> </span><span class="mi">404</span><span class="w"></span>
+<span class="nl">warning</span><span class="p">:</span><span class="w"> </span><span class="n">failed</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">retrieve</span><span class="w"> </span><span class="ow">some</span><span class="w"> </span><span class="n">files</span><span class="w"></span>
+<span class="nl">error</span><span class="p">:</span><span class="w"> </span><span class="n">failed</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="k">commit</span><span class="w"> </span><span class="k">transaction</span><span class="w"> </span><span class="p">(</span><span class="n">failed</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">retrieve</span><span class="w"> </span><span class="ow">some</span><span class="w"> </span><span class="n">files</span><span class="p">)</span><span class="w"></span>
+<span class="n">Errors</span><span class="w"> </span><span class="n">occurred</span><span class="p">,</span><span class="w"> </span><span class="k">no</span><span class="w"> </span><span class="n">packages</span><span class="w"> </span><span class="n">were</span><span class="w"> </span><span class="n">upgraded</span><span class="p">.</span><span class="w"></span>
+</pre></div>
+
+
+<p>Of course. It's Arch. Gotta upgrade the OS first.</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi ~]# pacman -Syu</span>
+<span class="err">:: Synchronizing package databases...</span>
+<span class="err">...</span>
+<span class="err">:: Retrieving packages...</span>
+</pre></div>
+
+
+<p>Let's find the logical volumes on this LVM partition and activate them:</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">lvscan</span><span class="w"></span>
+<span class="w">  </span><span class="nl">WARNING</span><span class="p">:</span><span class="w"> </span><span class="n">Failed</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="k">connect</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">lvmetad</span><span class="p">.</span><span class="w"> </span><span class="n">Falling</span><span class="w"> </span><span class="n">back</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="n">scanning</span><span class="p">.</span><span class="w"></span>
+<span class="w">  </span><span class="n">inactive</span><span class="w">          </span><span class="s1">&#39;/dev/centos/swap&#39;</span><span class="w"> </span><span class="o">[</span><span class="n">7.88 GiB</span><span class="o">]</span><span class="w"> </span><span class="n">inherit</span><span class="w"></span>
+<span class="w">  </span><span class="n">inactive</span><span class="w">          </span><span class="s1">&#39;/dev/centos/home&#39;</span><span class="w"> </span><span class="o">[</span><span class="n">90.12 GiB</span><span class="o">]</span><span class="w"> </span><span class="n">inherit</span><span class="w"></span>
+<span class="w">  </span><span class="n">inactive</span><span class="w">          </span><span class="s1">&#39;/dev/centos/root&#39;</span><span class="w"> </span><span class="o">[</span><span class="n">50.00 GiB</span><span class="o">]</span><span class="w"> </span><span class="n">inherit</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">vgchange</span><span class="w"> </span><span class="o">-</span><span class="n">ay</span><span class="w"></span>
+<span class="w">  </span><span class="nl">WARNING</span><span class="p">:</span><span class="w"> </span><span class="n">Failed</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="k">connect</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">lvmetad</span><span class="p">.</span><span class="w"> </span><span class="n">Falling</span><span class="w"> </span><span class="n">back</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="n">scanning</span><span class="p">.</span><span class="w"></span>
+<span class="w">  </span><span class="mi">3</span><span class="w"> </span><span class="n">logical</span><span class="w"> </span><span class="n">volume</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">volume</span><span class="w"> </span><span class="k">group</span><span class="w"> </span><span class="ss">&quot;centos&quot;</span><span class="w"> </span><span class="n">now</span><span class="w"> </span><span class="n">active</span><span class="w"></span>
+</pre></div>
+
+
+<p>Try to mount the root partition first:</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi ~]# mount /dev/centos/root /mnt</span>
+<span class="err">[root@alarmpi ~]# ls /mnt</span>
+<span class="err">aquota.group  backup  boot  error_log  home   lib    media  opt   quota.group  razor-agent.log  run   scripts  sys  usr</span>
+<span class="err">aquota.user   bin     dev   etc        home2  lib64  mnt    proc  quota.user   root     sbin  srv      tmp  var</span>
+</pre></div>
+
+
+<p>Success!
+Home is a different LVM2 volume, mounted onto the /home directory on the original disk.</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">ls</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">home</span><span class="w"></span>
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">centos</span><span class="o">/</span><span class="n">home</span><span class="w"> </span><span class="o">/</span><span class="n">server6</span><span class="o">/</span><span class="n">home</span><span class="w"></span>
+<span class="nl">mount</span><span class="p">:</span><span class="w"> </span><span class="o">/</span><span class="n">server6</span><span class="o">/</span><span class="nl">home</span><span class="p">:</span><span class="w"> </span><span class="n">mount</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">system</span><span class="w"> </span><span class="k">call</span><span class="w"> </span><span class="nl">failed</span><span class="p">:</span><span class="w"> </span><span class="k">No</span><span class="w"> </span><span class="k">data</span><span class="w"> </span><span class="n">available</span><span class="p">.</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">ls</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">home</span><span class="o">*</span><span class="w"></span>
+<span class="n">home</span><span class="o">/</span><span class="w">  </span><span class="n">home2</span><span class="o">/</span><span class="w"></span>
+</pre></div>
+
+
+<p>Maybe mount it directly on the Pi, rather than inside the mounted root partition?</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mkdir</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">home3</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">centos</span><span class="o">/</span><span class="n">home</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">home3</span><span class="w"></span>
+<span class="nl">mount</span><span class="p">:</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="nl">home3</span><span class="p">:</span><span class="w"> </span><span class="n">mount</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">system</span><span class="w"> </span><span class="k">call</span><span class="w"> </span><span class="nl">failed</span><span class="p">:</span><span class="w"> </span><span class="k">No</span><span class="w"> </span><span class="k">data</span><span class="w"> </span><span class="n">available</span><span class="p">.</span><span class="w"></span>
+</pre></div>
+
+
+<p>Nope.
+Well, the databases are more important, since a lot of the /home directories are just web content, and that's stored in version control. Let's check /var/lib/mysql on the root partition.</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi ~]# cd /mnt/var/lib/mysql/</span>
+<span class="err">[root@alarmpi mysql]# ls</span>
+<span class="err">RPM_UPGRADE_HISTORY  user2_wp            modsec      user11_aclstudygroup        user11_linct_prod       user11_sddocs       user0_prod</span>
+<span class="err">RPM_UPGRADE_MARKER-LAST  user3_production        mysql       user11_aclstudygroup_vanilla  user11_magedemo       user11_staging      user0_redesign</span>
+<span class="err">auto.cnf         user3_test          mysql.sock      user11_share        user11_marketingplaybook  user11_staging_old  user0_staging</span>
+<span class="err">user1_brody      user6_prod          mysql_upgrade_info  user11_bddocs       user11_minerva      user11_surge        user0_test</span>
+<span class="err">user1_gasexcrimes    ib_logfile0             user11_pack688  user11_captainplanet        user11_mcorp        user11_unboundary</span>
+<span class="err">user1_prod       ib_logfile1             performance_schema  user11_citysaga             user11_pbndocs      user11_wtefdocs</span>
+<span class="err">cphulkd          ibdata1                 user11_cmp          user11_playbacknow      user5_prod</span>
+<span class="err">user3_dev        server6.example.com.err    user11_edc           user11_prod             user0_dev</span>
+<span class="err">user3_prod       server6.example.com.pid  roundcube      user11_user10       user11_prod_wordpress     user0_drupal</span>
+<span class="err">user0_survey         leechprotect            user11_aboutplay    user11_dev          user11_scrum            user0_main</span>
+</pre></div>
+
+
+<p>Sweet! Poked around a bit to look at file sizes (no 0 bytes fiiles, etc). Things look good.
+Let's rsync it off directly to a network storage device...</p>
+<div class="highlight"><pre><span></span><span class="n">root</span><span class="p">@</span><span class="n">alarmpi</span> <span class="n">mysql</span><span class="p">]</span><span class="err">#</span> <span class="n">rsync</span> <span class="o">-</span><span class="n">avz</span> <span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">var</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">mysql</span> <span class="n">bkup</span><span class="mf">@192.168.1.15</span><span class="o">:/</span><span class="n">mnt</span><span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">bkup</span><span class="o">/</span><span class="n">server6</span><span class="o">/</span>
+<span class="n">This</span> <span class="n">rsync</span> <span class="n">lacks</span> <span class="n">old</span><span class="o">-</span><span class="n">style</span> <span class="o">--</span><span class="n">compress</span> <span class="n">due</span> <span class="n">to</span> <span class="n">its</span> <span class="n">external</span> <span class="n">zlib</span><span class="p">.</span>  <span class="n">Try</span> <span class="o">-</span><span class="n">zz</span><span class="p">.</span>
+<span class="n">Continuing</span> <span class="n">without</span> <span class="n">compression</span><span class="p">.</span>
+
+<span class="n">The</span> <span class="n">authenticity</span> <span class="n">of</span> <span class="n">host</span> <span class="err">&#39;</span><span class="mf">192.168.1.15</span> <span class="p">(</span><span class="mf">192.168.1.15</span><span class="p">)</span><span class="err">&#39;</span> <span class="n">can</span><span class="err">&#39;</span><span class="n">t</span> <span class="n">be</span> <span class="n">established</span><span class="p">.</span>
+<span class="n">ECDSA</span> <span class="n">key</span> <span class="n">fingerprint</span> <span class="n">is</span> <span class="nl">SHA256</span><span class="p">:</span><span class="n">vFpXHAorzqVTuQKSL2WyP5EtE</span><span class="o">+</span><span class="n">MwKPyT1Xij1Hz1fCA</span><span class="p">.</span>
+<span class="n">Are</span> <span class="n">you</span> <span class="n">sure</span> <span class="n">you</span> <span class="n">want</span> <span class="n">to</span> <span class="k">continue</span> <span class="n">connecting</span> <span class="p">(</span><span class="n">yes</span><span class="o">/</span><span class="n">no</span><span class="o">/</span><span class="p">[</span><span class="n">fingerprint</span><span class="p">])</span><span class="o">?</span> <span class="n">yes</span>
+<span class="nl">Warning</span><span class="p">:</span> <span class="n">Permanently</span> <span class="n">added</span> <span class="err">&#39;</span><span class="mf">192.168.1.15</span><span class="err">&#39;</span> <span class="p">(</span><span class="n">ECDSA</span><span class="p">)</span> <span class="n">to</span> <span class="n">the</span> <span class="n">list</span> <span class="n">of</span> <span class="n">known</span> <span class="n">hosts</span><span class="p">.</span>
+<span class="n">bkup</span><span class="mf">@192.168.1.15</span><span class="err">&#39;</span><span class="n">s</span> <span class="nl">password</span><span class="p">:</span>
+<span class="n">sending</span> <span class="n">incremental</span> <span class="n">file</span> <span class="n">list</span>
+<span class="n">created</span> <span class="n">directory</span> <span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">bkup</span><span class="o">/</span><span class="n">server6</span>
+<span class="n">mysql</span><span class="o">/</span>
+<span class="n">mysql</span><span class="o">/</span><span class="n">RPM_UPGRADE_HISTORY</span>
+<span class="n">mysql</span><span class="o">/</span><span class="n">RPM_UPGRADE_MARKER</span><span class="o">-</span><span class="n">LAST</span>
+<span class="n">mysql</span><span class="o">/</span><span class="k">auto</span><span class="p">.</span><span class="n">cnf</span>
+<span class="p">...</span>
+<span class="p">...</span>
+</pre></div>
+
+
+<p>Now, let's install the packages to get xfs_repair on Arch.</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi ~]# pacman -S xfsprogs</span>
+<span class="err">resolving dependencies...</span>
+<span class="err">looking for conflicting packages...</span>
+</pre></div>
+
+
+<p>Let's try to mount it again.</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi ~]# mount /dev/centos/home /mnt/home</span>
+<span class="c">mount: /mnt/home: mount(2) system call failed: No data available.</span>
+</pre></div>
+
+
+<p>And run xfs_repair -n to see what would happen (edited for brevity).</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">xfs_repair</span><span class="w"> </span><span class="o">-</span><span class="n">n</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">centos</span><span class="o">/</span><span class="n">home</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">find</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">verify</span><span class="w"> </span><span class="n">superblock</span><span class="p">...</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="k">using</span><span class="w"> </span><span class="n">internal</span><span class="w"> </span><span class="nf">log</span><span class="w"></span>
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="n">zero</span><span class="w"> </span><span class="nf">log</span><span class="p">...</span><span class="w"></span>
+<span class="nl">ALERT</span><span class="p">:</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">has</span><span class="w"> </span><span class="n">valuable</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="n">changes</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">being</span><span class="w"></span>
+<span class="n">ignored</span><span class="w"> </span><span class="n">because</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="o">-</span><span class="n">n</span><span class="w"> </span><span class="k">option</span><span class="w"> </span><span class="n">was</span><span class="w"> </span><span class="n">used</span><span class="p">.</span><span class="w">  </span><span class="n">Expect</span><span class="w"> </span><span class="n">spurious</span><span class="w"> </span><span class="n">inconsistencies</span><span class="w"></span>
+<span class="n">which</span><span class="w"> </span><span class="n">may</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">resolved</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="k">first</span><span class="w"> </span><span class="n">mounting</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">replay</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="p">.</span><span class="w"></span>
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="n">scan</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">freespace</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">inode</span><span class="w"> </span><span class="n">maps</span><span class="p">...</span><span class="w"></span>
+<span class="n">sb_fdblocks</span><span class="w"> </span><span class="mi">1723017</span><span class="p">,</span><span class="w"> </span><span class="n">counted</span><span class="w"> </span><span class="mi">1731714</span><span class="w"></span>
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="k">found</span><span class="w"> </span><span class="n">root</span><span class="w"> </span><span class="n">inode</span><span class="w"> </span><span class="n">chunk</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">each</span><span class="w"> </span><span class="n">AG</span><span class="p">...</span><span class="w"></span>
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="n">scan</span><span class="w"> </span><span class="p">(</span><span class="n">but</span><span class="w"> </span><span class="n">don</span><span class="s1">&#39;t clear) agi unlinked lists...</span>
+<span class="s1">        - process known inodes and perform inode discovery...</span>
+<span class="s1">        - agno = 0</span>
+<span class="s1">xfs_repair: read failed: No data available</span>
+<span class="s1">bad magic number 0x6d65 on inode 5840900</span>
+<span class="s1">bad version number 0x6f on inode 5840900</span>
+<span class="s1">bad next_unlinked 0x2f5a656e on inode 5840900</span>
+<span class="s1">bad magic number 0x2f68 on inode 5840906, would reset magic number</span>
+<span class="s1">bad version number 0x65 on inode 5840906, would reset version number</span>
+<span class="s1">bad next_unlinked 0x6172792f on inode 5840906, would reset next_unlinked</span>
+<span class="s1">bad inode format in inode 5840927</span>
+<span class="s1">would have cleared inode 5840927</span>
+<span class="s1">        - agno = 1</span>
+<span class="s1">        - agno = 2</span>
+<span class="s1">        - agno = 3</span>
+<span class="s1">        - process newly discovered inodes...</span>
+<span class="s1">Phase 4 - check for duplicate blocks...</span>
+<span class="s1">        - setting up duplicate extent list...</span>
+<span class="s1">        - check for inodes claiming duplicate blocks...</span>
+<span class="s1">        - agno = 0</span>
+
+
+<span class="s1">Phase 7 - verify link counts...</span>
+<span class="s1">xfs_repair: read failed: No data available</span>
+<span class="s1">xfs_imap_to_bp: xfs_trans_read_buf() returned error -61.</span>
+<span class="s1">couldn&#39;</span><span class="n">t</span><span class="w"> </span><span class="k">map</span><span class="w"> </span><span class="n">inode</span><span class="w"> </span><span class="mi">5840917</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">61</span><span class="p">,</span><span class="w"> </span><span class="n">can</span><span class="s1">&#39;t compare link counts</span>
+<span class="s1">xfs_repair: read failed: No data available</span>
+<span class="s1">xfs_imap_to_bp: xfs_trans_read_buf() returned error -61.</span>
+<span class="s1">couldn&#39;</span><span class="n">t</span><span class="w"> </span><span class="k">map</span><span class="w"> </span><span class="n">inode</span><span class="w"> </span><span class="mi">5840925</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">61</span><span class="p">,</span><span class="w"> </span><span class="n">can</span><span class="err">&#39;</span><span class="n">t</span><span class="w"> </span><span class="n">compare</span><span class="w"> </span><span class="n">link</span><span class="w"> </span><span class="n">counts</span><span class="w"></span>
+<span class="k">No</span><span class="w"> </span><span class="k">modify</span><span class="w"> </span><span class="n">flag</span><span class="w"> </span><span class="k">set</span><span class="p">,</span><span class="w"> </span><span class="n">skipping</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">flush</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">exiting</span><span class="p">.</span><span class="w"></span>
+</pre></div>
+
+
+<p>Well, there were some I/O errors in my output, so I'm not holding my breath for the repair:</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">xfs_repair</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">centos</span><span class="o">/</span><span class="n">home</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">find</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">verify</span><span class="w"> </span><span class="n">superblock</span><span class="p">...</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="k">using</span><span class="w"> </span><span class="n">internal</span><span class="w"> </span><span class="nf">log</span><span class="w"></span>
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="n">zero</span><span class="w"> </span><span class="nf">log</span><span class="p">...</span><span class="w"></span>
+<span class="nl">ERROR</span><span class="p">:</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">has</span><span class="w"> </span><span class="n">valuable</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="n">changes</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="n">needs</span><span class="w"> </span><span class="k">to</span><span class="w"></span>
+<span class="n">be</span><span class="w"> </span><span class="n">replayed</span><span class="p">.</span><span class="w">  </span><span class="n">Mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">replay</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="p">,</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">unmount</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="k">before</span><span class="w"></span>
+<span class="n">re</span><span class="o">-</span><span class="n">running</span><span class="w"> </span><span class="n">xfs_repair</span><span class="p">.</span><span class="w">  </span><span class="k">If</span><span class="w"> </span><span class="n">you</span><span class="w"> </span><span class="k">are</span><span class="w"> </span><span class="n">unable</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="p">,</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="k">use</span><span class="w"></span>
+<span class="n">the</span><span class="w"> </span><span class="o">-</span><span class="n">L</span><span class="w"> </span><span class="k">option</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="k">destroy</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">attempt</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">repair</span><span class="p">.</span><span class="w"></span>
+<span class="n">Note</span><span class="w"> </span><span class="n">that</span><span class="w"> </span><span class="n">destroying</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">may</span><span class="w"> </span><span class="n">cause</span><span class="w"> </span><span class="n">corruption</span><span class="w"> </span><span class="c1">-- please attempt a mount</span>
+<span class="k">of</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">before</span><span class="w"> </span><span class="n">doing</span><span class="w"> </span><span class="n">this</span><span class="p">.</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">-</span><span class="n">t</span><span class="w"> </span><span class="n">xfs</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">centos</span><span class="o">/</span><span class="n">home</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">home</span><span class="w"></span>
+<span class="nl">mount</span><span class="p">:</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="nl">home</span><span class="p">:</span><span class="w"> </span><span class="n">mount</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">system</span><span class="w"> </span><span class="k">call</span><span class="w"> </span><span class="nl">failed</span><span class="p">:</span><span class="w"> </span><span class="k">No</span><span class="w"> </span><span class="k">data</span><span class="w"> </span><span class="n">available</span><span class="p">.</span><span class="w"></span>
+</pre></div>
+
+
+<p>Yeah. Not so great. I already know I can't mount the partition to replay the log, and the -L switch is a destructive operation.</p>
+<p>Let's unmount the root filesystem for a moment and attach a second, external USB drive to copy home data off to. We'll put it onto '/mnt' instead.</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n"> 4451.182458</span><span class="o">]</span><span class="w"> </span><span class="n">sd</span><span class="w"> </span><span class="mi">1</span><span class="err">:</span><span class="mi">0</span><span class="err">:</span><span class="mi">0</span><span class="err">:</span><span class="mi">0</span><span class="err">:</span><span class="w"> </span><span class="o">[</span><span class="n">sdb</span><span class="o">]</span><span class="w"> </span><span class="n">Attached</span><span class="w"> </span><span class="n">SCSI</span><span class="w"> </span><span class="k">disk</span><span class="w"></span>
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">umount</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="w"></span>
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sdb1</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="w"></span>
+</pre></div>
+
+
+<p>First, we'll dump the metadata and restore it to a disk image on the USB drive.</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">xfs_metadump</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">centos</span><span class="o">/</span><span class="n">home</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="p">.</span><span class="n">metadump</span><span class="w"></span>
+<span class="nl">xfs_metadump</span><span class="p">:</span><span class="w"> </span><span class="k">read</span><span class="w"> </span><span class="nl">failed</span><span class="p">:</span><span class="w"> </span><span class="k">Input</span><span class="o">/</span><span class="k">output</span><span class="w"> </span><span class="n">error</span><span class="w"></span>
+<span class="nl">xfs_metadump</span><span class="p">:</span><span class="w"> </span><span class="n">cannot</span><span class="w"> </span><span class="k">read</span><span class="w"> </span><span class="n">inode</span><span class="w"> </span><span class="n">block</span><span class="w"> </span><span class="mi">0</span><span class="o">/</span><span class="mi">365056</span><span class="w"></span>
+<span class="nl">xfs_metadump</span><span class="p">:</span><span class="w"> </span><span class="nl">Warning</span><span class="p">:</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">recovery</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="n">an</span><span class="w"> </span><span class="n">obfuscated</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="nc">image</span><span class="w"> </span><span class="n">can</span><span class="w"> </span><span class="n">leak</span><span class="w"> </span><span class="n">unobfuscated</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="ow">and</span><span class="o">/</span><span class="ow">or</span><span class="w"> </span><span class="n">cause</span><span class="w"> </span><span class="nc">image</span><span class="w"> </span><span class="n">corruption</span><span class="p">.</span><span class="w">  </span><span class="k">If</span><span class="w"> </span><span class="n">possible</span><span class="p">,</span><span class="w"> </span><span class="n">please</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">clean</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="p">,</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">disable</span><span class="w"> </span><span class="n">obfuscation</span><span class="p">.</span><span class="w"></span>
+<span class="nl">cache_purge</span><span class="p">:</span><span class="w"> </span><span class="n">shake</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="n">cache</span><span class="w"> </span><span class="mh">0xfe5320</span><span class="w"> </span><span class="nf">left</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">nodes</span><span class="err">!</span><span class="vm">?</span><span class="w"></span>
+<span class="nl">cache_purge</span><span class="p">:</span><span class="w"> </span><span class="n">shake</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="n">cache</span><span class="w"> </span><span class="mh">0xfe5320</span><span class="w"> </span><span class="nf">left</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">nodes</span><span class="err">!</span><span class="vm">?</span><span class="w"></span>
+<span class="nl">cache_zero_check</span><span class="p">:</span><span class="w"> </span><span class="n">refcount</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="n">zero</span><span class="w"> </span><span class="p">(</span><span class="n">node</span><span class="o">=</span><span class="mh">0x17820c8</span><span class="p">)</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">ls</span><span class="w"> </span><span class="o">-</span><span class="n">l</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="p">.</span><span class="n">metadump</span><span class="w">  </span>
+<span class="o">-</span><span class="n">rwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">root</span><span class="w"> </span><span class="n">root</span><span class="w"> </span><span class="mi">844619776</span><span class="w"> </span><span class="n">Apr</span><span class="w">  </span><span class="mi">6</span><span class="w"> </span><span class="mi">18</span><span class="err">:</span><span class="mi">48</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="p">.</span><span class="n">metadump</span><span class="w"></span>
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">xfs_mdrestore</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="p">.</span><span class="n">metadump</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="p">.</span><span class="n">img</span><span class="w"></span>
+<span class="nl">xfs_mdrestore</span><span class="p">:</span><span class="w"> </span><span class="n">cannot</span><span class="w"> </span><span class="k">set</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="nc">image</span><span class="w"> </span><span class="k">size</span><span class="err">:</span><span class="w"> </span><span class="k">File</span><span class="w"> </span><span class="n">too</span><span class="w"> </span><span class="k">large</span><span class="w"></span>
+</pre></div>
+
+
+<p>Oh yeah, the USB drive is FAT32. Can't handle large image files (4GB is the limit).
+Wipe it and format it as ext4.</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">umount</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mkfs</span><span class="p">.</span><span class="n">ext4</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sdb1</span><span class="w"></span>
+<span class="n">mke2fs</span><span class="w"> </span><span class="mf">1.45.6</span><span class="w"> </span><span class="p">(</span><span class="mi">20</span><span class="o">-</span><span class="n">Mar</span><span class="o">-</span><span class="mi">2020</span><span class="p">)</span><span class="w"></span>
+<span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sdb1</span><span class="w"> </span><span class="k">contains</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">vfat</span><span class="w"> </span><span class="k">file</span><span class="w"> </span><span class="k">system</span><span class="w"> </span><span class="n">labelled</span><span class="w"> </span><span class="s1">&#39;UNTITLED&#39;</span><span class="w"></span>
+<span class="n">Proceed</span><span class="w"> </span><span class="n">anyway</span><span class="vm">?</span><span class="w"> </span><span class="p">(</span><span class="n">y</span><span class="p">,</span><span class="n">N</span><span class="p">)</span><span class="w"> </span><span class="n">y</span><span class="w"></span>
+<span class="n">Creating</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="mi">61049645</span><span class="w"> </span><span class="mi">4</span><span class="n">k</span><span class="w"> </span><span class="n">blocks</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="mi">15269888</span><span class="w"> </span><span class="n">inodes</span><span class="w"></span>
+<span class="n">Filesystem</span><span class="w"> </span><span class="nl">UUID</span><span class="p">:</span><span class="w"> </span><span class="mf">50818e1</span><span class="n">c</span><span class="o">-</span><span class="n">e8a9</span><span class="o">-</span><span class="mi">42</span><span class="n">a9</span><span class="o">-</span><span class="n">a126</span><span class="o">-</span><span class="mi">405</span><span class="n">f9d5fa8a0</span><span class="w"></span>
+<span class="n">Superblock</span><span class="w"> </span><span class="n">backups</span><span class="w"> </span><span class="n">stored</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="nl">blocks</span><span class="p">:</span><span class="w"></span>
+<span class="w">    </span><span class="mi">32768</span><span class="p">,</span><span class="w"> </span><span class="mi">98304</span><span class="p">,</span><span class="w"> </span><span class="mi">163840</span><span class="p">,</span><span class="w"> </span><span class="mi">229376</span><span class="p">,</span><span class="w"> </span><span class="mi">294912</span><span class="p">,</span><span class="w"> </span><span class="mi">819200</span><span class="p">,</span><span class="w"> </span><span class="mi">884736</span><span class="p">,</span><span class="w"> </span><span class="mi">1605632</span><span class="p">,</span><span class="w"> </span><span class="mi">2654208</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="mi">4096000</span><span class="p">,</span><span class="w"> </span><span class="mi">7962624</span><span class="p">,</span><span class="w"> </span><span class="mi">11239424</span><span class="p">,</span><span class="w"> </span><span class="mi">20480000</span><span class="p">,</span><span class="w"> </span><span class="mi">23887872</span><span class="w"></span>
+
+<span class="n">Allocating</span><span class="w"> </span><span class="k">group</span><span class="w"> </span><span class="nl">tables</span><span class="p">:</span><span class="w"> </span><span class="n">done</span><span class="w">                            </span>
+<span class="n">Writing</span><span class="w"> </span><span class="n">inode</span><span class="w"> </span><span class="nl">tables</span><span class="p">:</span><span class="w"> </span><span class="n">done</span><span class="w">                            </span>
+<span class="n">Creating</span><span class="w"> </span><span class="n">journal</span><span class="w"> </span><span class="p">(</span><span class="mi">262144</span><span class="w"> </span><span class="n">blocks</span><span class="p">)</span><span class="err">:</span><span class="w"> </span><span class="n">done</span><span class="w"></span>
+<span class="n">Writing</span><span class="w"> </span><span class="n">superblocks</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">accounting</span><span class="w"> </span><span class="nl">information</span><span class="p">:</span><span class="w"> </span><span class="n">done</span><span class="w">     </span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sdb1</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="w"></span>
+</pre></div>
+
+
+<p>Now, let's try this again.</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi ~]# xfs_metadump /dev/centos/home /mnt/server6-home.metadata</span>
+<span class="c">xfs_metadump: read failed: Input/output error</span>
+<span class="c">xfs_metadump: cannot read inode block 0/365056</span>
+<span class="c">xfs_metadump: Warning: log recovery of an obfuscated metadata image can leak unobfuscated metadata and/or cause image corruption.  If possible, please mount the filesystem to clean the log, or disable obfuscation.</span>
+<span class="c">cache_purge: shake on cache 0x1cb6320 left 1 nodes!?</span>
+<span class="c">cache_purge: shake on cache 0x1cb6320 left 1 nodes!?</span>
+<span class="c">cache_zero_check: refcount is 1, not zero (node=0x24520c8)</span>
+</pre></div>
+
+
+<p>That <code>read failed: Input/Output</code> error doesn't sound good, but let's try to restore the metadata to an image file anyway.</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi ~]# xfs_mdrestore /mnt/server6-home.metadata /mnt/server6-home.img</span>
+<span class="err">[root@alarmpi ~]# xfs_repair /mnt/server6-home.img</span>
+<span class="err">Cannot get host filesystem geometry.</span>
+<span class="err">Repair may fail if there is a sector size mismatch between</span>
+<span class="err">the image and the host filesystem.</span>
+<span class="err">Phase 1 - find and verify superblock...</span>
+<span class="err">Cannot get host filesystem geometry.</span>
+<span class="err">Repair may fail if there is a sector size mismatch between</span>
+<span class="err">the image and the host filesystem.</span>
+<span class="err">Phase 2 - using internal log</span>
+<span class="err">        - zero log...</span>
+<span class="c">ERROR: The filesystem has valuable metadata changes in a log which needs to</span>
+<span class="err">be replayed.  Mount the filesystem to replay the log, and unmount it before</span>
+<span class="err">re-running xfs_repair.  If you are unable to mount the filesystem, then use</span>
+<span class="err">the -L option to destroy the log and attempt a repair.</span>
+<span class="err">Note that destroying the log may cause corruption -- please attempt a mount</span>
+<span class="err">of the filesystem before doing this.</span>
+</pre></div>
+
+
+<p>Actually, we shouldn't really try to do this directly on an image file. Better to do this on a loopback device.</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">ls</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="w"></span>
+<span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="p">.</span><span class="n">img</span><span class="w">  </span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="p">.</span><span class="n">metadata</span><span class="w">  </span><span class="n">lost</span><span class="o">+</span><span class="k">found</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">losetup</span><span class="w"> </span><span class="c1">--show --find /mnt/server6-home.img</span>
+<span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop0</span><span class="w"></span>
+</pre></div>
+
+
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">xfs_repair</span><span class="w"> </span><span class="o">-</span><span class="n">L</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop0</span><span class="w"></span>
+<span class="n">Cannot</span><span class="w"> </span><span class="k">get</span><span class="w"> </span><span class="k">host</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">geometry</span><span class="p">.</span><span class="w"></span>
+<span class="n">Repair</span><span class="w"> </span><span class="n">may</span><span class="w"> </span><span class="n">fail</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">there</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">sector</span><span class="w"> </span><span class="k">size</span><span class="w"> </span><span class="n">mismatch</span><span class="w"> </span><span class="ow">between</span><span class="w"></span>
+<span class="n">the</span><span class="w"> </span><span class="nc">image</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="k">host</span><span class="w"> </span><span class="n">filesystem</span><span class="p">.</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">find</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">verify</span><span class="w"> </span><span class="n">superblock</span><span class="p">...</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">snipped</span><span class="o">]</span><span class="w"></span>
+
+<span class="n">Phase</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">verify</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">correct</span><span class="w"> </span><span class="n">link</span><span class="w"> </span><span class="n">counts</span><span class="p">...</span><span class="w"></span>
+<span class="n">Note</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">quota</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="n">will</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">regenerated</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="k">next</span><span class="w"> </span><span class="n">quota</span><span class="w"> </span><span class="n">mount</span><span class="p">.</span><span class="w"></span>
+<span class="n">done</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mkdir</span><span class="w"> </span><span class="o">/</span><span class="n">loopy</span><span class="w"></span>
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop0</span><span class="w"> </span><span class="o">/</span><span class="n">loopy</span><span class="w"></span>
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">ls</span><span class="w"> </span><span class="o">/</span><span class="n">loopy</span><span class="w"></span>
+<span class="s1">&#39;&#39;</span><span class="err">$</span><span class="s1">&#39;\003&#39;&#39;kovu&#39;</span><span class="w">           </span><span class="s1">&#39;Gb0&#39;</span><span class="err">$</span><span class="s1">&#39;\016&#39;&#39;n&#39;</span><span class="err">$</span><span class="s1">&#39;\021&#39;&#39;k&#39;</span><span class="err">$</span><span class="s1">&#39;\033&#39;</span><span class="w">        </span><span class="s1">&#39;bcCa-D&#39;</span><span class="err">$</span><span class="s1">&#39;\005\023&#39;&#39;C&#39;</span><span class="err">$</span><span class="s1">&#39;\032&#39;&#39;m&#39;</span><span class="w">  </span><span class="s1">&#39;ryN&#39;</span><span class="err">$</span><span class="s1">&#39;\004&#39;&#39;xVX&#39;</span><span class="err">$</span><span class="s1">&#39;\024&#39;</span><span class="w"></span>
+<span class="s1">&#39;&#39;</span><span class="err">$</span><span class="s1">&#39;\a&#39;&#39;hat5&#39;</span><span class="w">             </span><span class="s1">&#39;GpzR_Ksp&#39;</span><span class="err">$</span><span class="s1">&#39;\001\264&#39;&#39;J0E&#39;</span><span class="w">          </span><span class="s1">&#39;h&#39;</span><span class="err">$</span><span class="s1">&#39;\t&#39;&#39;rro\&#39;</span><span class="w">             </span><span class="n">user11</span><span class="w"></span>
+<span class="s1">&#39;&#39;</span><span class="err">$</span><span class="s1">&#39;\016&#39;&#39;cpal&#39;</span><span class="w">           </span><span class="s1">&#39;Hwp-hBh&#39;</span><span class="err">$</span><span class="s1">&#39;\b&#39;&#39;?;% &#39;</span><span class="w">            </span><span class="s1">&#39;j&#39;</span><span class="err">$</span><span class="s1">&#39;\003&#39;&#39;pajK&#39;</span><span class="w">          </span><span class="s1">&#39;y7jG8CU4bonN2aujzfJamyN3xY&#39;</span><span class="err">$</span><span class="s1">&#39;\a\v\034&#39;&#39;cs&#39;</span><span class="w"></span>
+<span class="s1">&#39;-Xqcr&#39;</span><span class="err">$</span><span class="s1">&#39;\016&#39;&#39;2o&#39;</span><span class="err">$</span><span class="s1">&#39;\005&#39;&#39;k&#39;</span><span class="w">  </span><span class="s1">&#39;N6&#39;</span><span class="err">$</span><span class="s1">&#39;\001\343&#39;&#39;vdA&#39;</span><span class="w">            </span><span class="s1">&#39;mF88U1Y-&#39;</span><span class="err">$</span><span class="s1">&#39;\016\033&#39;&#39;Hs,&#39;</span><span class="w">    </span><span class="s1">&#39;yv8UsY&#39;</span><span class="err">$</span><span class="s1">&#39;\002\036&#39;&#39;#R3&#39;</span><span class="w"></span>
+<span class="s1">&#39;76q67pR&#39;</span><span class="err">$</span><span class="s1">&#39;\002&#39;&#39;&gt;]YT&#39;</span><span class="w">        </span><span class="s1">&#39;UROC0Bh9c&#39;</span><span class="err">$</span><span class="s1">&#39;\001&#39;&#39;B&#39;</span><span class="err">$</span><span class="s1">&#39;\027&#39;&#39;:&#39;</span><span class="err">$</span><span class="s1">&#39;\177&#39;</span><span class="w">  </span><span class="s1">&#39;n&#39;</span><span class="err">$</span><span class="s1">&#39;\001&#39;&#39;tesb&#39;</span><span class="w"></span>
+<span class="s1">&#39;8n-B&#39;</span><span class="err">$</span><span class="s1">&#39;\001&#39;&#39;CItv&#39;</span><span class="w">       </span><span class="s1">&#39;WP4c&#39;</span><span class="err">$</span><span class="s1">&#39;\016&#39;&#39;~Ia&#39;</span><span class="err">$</span><span class="s1">&#39;\037&#39;</span><span class="w">           </span><span class="s1">&#39;qsw77&#39;</span><span class="err">$</span><span class="s1">&#39;\016&#39;&#39;D7x@&#39;</span><span class="w"></span>
+</pre></div>
+
+
+<p>This is just a copy of the metadata, but doesn't look so good. I expected to at least see file names.
+Let's try to copy the partition itself and work from that copy. That way, we can use destructive operations and we can ease up on slamming a failing disk with all this activity.</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">centos</span><span class="o">/</span><span class="n">home</span><span class="w"> </span><span class="k">of</span><span class="o">=/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="o">-</span><span class="nc">real</span><span class="p">.</span><span class="n">img</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">128</span><span class="n">k</span><span class="w"></span>
+<span class="nl">dd</span><span class="p">:</span><span class="w"> </span><span class="n">error</span><span class="w"> </span><span class="n">reading</span><span class="w"> </span><span class="s1">&#39;/dev/centos/home&#39;</span><span class="err">:</span><span class="w"> </span><span class="k">Input</span><span class="o">/</span><span class="k">output</span><span class="w"> </span><span class="n">error</span><span class="w"></span>
+<span class="mi">11408</span><span class="o">+</span><span class="mi">0</span><span class="w"> </span><span class="n">records</span><span class="w"> </span><span class="ow">in</span><span class="w"></span>
+<span class="mi">11408</span><span class="o">+</span><span class="mi">0</span><span class="w"> </span><span class="n">records</span><span class="w"> </span><span class="k">out</span><span class="w"></span>
+<span class="mi">1495269376</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="p">(</span><span class="mf">1.5</span><span class="w"> </span><span class="n">GB</span><span class="p">,</span><span class="w"> </span><span class="mf">1.4</span><span class="w"> </span><span class="n">GiB</span><span class="p">)</span><span class="w"> </span><span class="n">copied</span><span class="p">,</span><span class="w"> </span><span class="mf">78.6088</span><span class="w"> </span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="mf">19.0</span><span class="w"> </span><span class="n">MB</span><span class="o">/</span><span class="n">s</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">ls</span><span class="w"> </span><span class="n">mnt</span><span class="w"></span>
+<span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="o">-</span><span class="nc">real</span><span class="p">.</span><span class="n">img</span><span class="w">  </span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="p">.</span><span class="n">img</span><span class="w">  </span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="p">.</span><span class="n">metadata</span><span class="w">  </span><span class="n">lost</span><span class="o">+</span><span class="k">found</span><span class="w"></span>
+</pre></div>
+
+
+<p>Nope. I/O errors. Let's try ddrescue.</p>
+<p>We need to make 2 passes: one pass to read just the good blocks (those without read errors), and a second pass to try to read the bad the blocks three times before giving up:</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">ddrescue</span><span class="w"> </span><span class="o">-</span><span class="n">f</span><span class="w"> </span><span class="o">-</span><span class="n">n</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">centos</span><span class="o">/</span><span class="n">home</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="o">-</span><span class="n">rescue</span><span class="p">.</span><span class="n">img</span><span class="w"> </span><span class="n">rescue</span><span class="p">.</span><span class="nf">log</span><span class="w"></span>
+<span class="n">GNU</span><span class="w"> </span><span class="n">ddrescue</span><span class="w"> </span><span class="mf">1.25</span><span class="w"></span>
+<span class="n">Press</span><span class="w"> </span><span class="n">Ctrl</span><span class="o">-</span><span class="n">C</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">interrupt</span><span class="w"></span>
+<span class="w">     </span><span class="nl">ipos</span><span class="p">:</span><span class="w">    </span><span class="mi">1495</span><span class="w"> </span><span class="n">MB</span><span class="p">,</span><span class="w"> </span><span class="n">non</span><span class="o">-</span><span class="nl">trimmed</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w">  </span><span class="k">current</span><span class="w"> </span><span class="nl">rate</span><span class="p">:</span><span class="w">   </span><span class="mi">30720</span><span class="w"> </span><span class="n">B</span><span class="o">/</span><span class="n">s</span><span class="w"></span>
+<span class="w">     </span><span class="nl">opos</span><span class="p">:</span><span class="w">    </span><span class="mi">1495</span><span class="w"> </span><span class="n">MB</span><span class="p">,</span><span class="w"> </span><span class="n">non</span><span class="o">-</span><span class="nl">scraped</span><span class="p">:</span><span class="w">     </span><span class="mi">3072</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w">  </span><span class="n">average</span><span class="w"> </span><span class="nl">rate</span><span class="p">:</span><span class="w">  </span><span class="mi">17486</span><span class="w"> </span><span class="n">kB</span><span class="o">/</span><span class="n">s</span><span class="w"></span>
+<span class="n">non</span><span class="o">-</span><span class="nl">tried</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w">  </span><span class="n">bad</span><span class="o">-</span><span class="nl">sector</span><span class="p">:</span><span class="w">     </span><span class="mi">1024</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w">    </span><span class="n">error</span><span class="w"> </span><span class="nl">rate</span><span class="p">:</span><span class="w">     </span><span class="mi">256</span><span class="w"> </span><span class="n">B</span><span class="o">/</span><span class="n">s</span><span class="w"></span>
+<span class="w">  </span><span class="nl">rescued</span><span class="p">:</span><span class="w">   </span><span class="mi">96770</span><span class="w"> </span><span class="n">MB</span><span class="p">,</span><span class="w">   </span><span class="n">bad</span><span class="w"> </span><span class="nl">areas</span><span class="p">:</span><span class="w">        </span><span class="mi">2</span><span class="p">,</span><span class="w">        </span><span class="n">run</span><span class="w"> </span><span class="nc">time</span><span class="err">:</span><span class="w">  </span><span class="mi">1</span><span class="n">h</span><span class="w"> </span><span class="mi">32</span><span class="n">m</span><span class="w"> </span><span class="mi">14</span><span class="n">s</span><span class="w"></span>
+<span class="n">pct</span><span class="w"> </span><span class="nl">rescued</span><span class="p">:</span><span class="w">   </span><span class="mf">99.99</span><span class="o">%</span><span class="p">,</span><span class="w"> </span><span class="k">read</span><span class="w"> </span><span class="nl">errors</span><span class="p">:</span><span class="w">        </span><span class="mi">3</span><span class="p">,</span><span class="w">  </span><span class="n">remaining</span><span class="w"> </span><span class="nc">time</span><span class="err">:</span><span class="w">          </span><span class="mi">1</span><span class="n">s</span><span class="w"></span>
+<span class="w">                              </span><span class="nc">time</span><span class="w"> </span><span class="n">since</span><span class="w"> </span><span class="k">last</span><span class="w"> </span><span class="n">successful</span><span class="w"> </span><span class="k">read</span><span class="err">:</span><span class="w">          </span><span class="mi">0</span><span class="n">s</span><span class="w"></span>
+<span class="n">Finished</span><span class="w">         </span>
+
+<span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">ddrescue</span><span class="w"> </span><span class="o">-</span><span class="n">d</span><span class="w"> </span><span class="o">-</span><span class="n">f</span><span class="w"> </span><span class="o">-</span><span class="n">r3</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">centos</span><span class="o">/</span><span class="n">home</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">home</span><span class="o">-</span><span class="n">rescue</span><span class="p">.</span><span class="n">img</span><span class="w"> </span><span class="n">rescue</span><span class="p">.</span><span class="nf">log</span><span class="w"></span>
+<span class="n">GNU</span><span class="w"> </span><span class="n">ddrescue</span><span class="w"> </span><span class="mf">1.25</span><span class="w"></span>
+<span class="n">Press</span><span class="w"> </span><span class="n">Ctrl</span><span class="o">-</span><span class="n">C</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">interrupt</span><span class="w"></span>
+<span class="n">Initial</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="p">(</span><span class="k">read</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="n">mapfile</span><span class="p">)</span><span class="w"></span>
+<span class="nl">rescued</span><span class="p">:</span><span class="w"> </span><span class="mi">96770</span><span class="w"> </span><span class="n">MB</span><span class="p">,</span><span class="w"> </span><span class="nl">tried</span><span class="p">:</span><span class="w"> </span><span class="mi">4096</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w"> </span><span class="n">bad</span><span class="o">-</span><span class="nl">sector</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w"> </span><span class="n">bad</span><span class="w"> </span><span class="nl">areas</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"></span>
+
+<span class="k">Current</span><span class="w"> </span><span class="n">status</span><span class="w"></span>
+<span class="w">     </span><span class="nl">ipos</span><span class="p">:</span><span class="w">    </span><span class="mi">1495</span><span class="w"> </span><span class="n">MB</span><span class="p">,</span><span class="w"> </span><span class="n">non</span><span class="o">-</span><span class="nl">trimmed</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w">  </span><span class="k">current</span><span class="w"> </span><span class="nl">rate</span><span class="p">:</span><span class="w">       </span><span class="mi">0</span><span class="w"> </span><span class="n">B</span><span class="o">/</span><span class="n">s</span><span class="w"></span>
+<span class="w">     </span><span class="nl">opos</span><span class="p">:</span><span class="w">    </span><span class="mi">1495</span><span class="w"> </span><span class="n">MB</span><span class="p">,</span><span class="w"> </span><span class="n">non</span><span class="o">-</span><span class="nl">scraped</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w">  </span><span class="n">average</span><span class="w"> </span><span class="nl">rate</span><span class="p">:</span><span class="w">     </span><span class="mi">398</span><span class="w"> </span><span class="n">B</span><span class="o">/</span><span class="n">s</span><span class="w"></span>
+<span class="n">non</span><span class="o">-</span><span class="nl">tried</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w">  </span><span class="n">bad</span><span class="o">-</span><span class="nl">sector</span><span class="p">:</span><span class="w">      </span><span class="mi">512</span><span class="w"> </span><span class="n">B</span><span class="p">,</span><span class="w">    </span><span class="n">error</span><span class="w"> </span><span class="nl">rate</span><span class="p">:</span><span class="w">     </span><span class="mi">170</span><span class="w"> </span><span class="n">B</span><span class="o">/</span><span class="n">s</span><span class="w"></span>
+<span class="w">  </span><span class="nl">rescued</span><span class="p">:</span><span class="w">   </span><span class="mi">96770</span><span class="w"> </span><span class="n">MB</span><span class="p">,</span><span class="w">   </span><span class="n">bad</span><span class="w"> </span><span class="nl">areas</span><span class="p">:</span><span class="w">        </span><span class="mi">1</span><span class="p">,</span><span class="w">        </span><span class="n">run</span><span class="w"> </span><span class="nc">time</span><span class="err">:</span><span class="w">          </span><span class="mi">9</span><span class="n">s</span><span class="w"></span>
+<span class="n">pct</span><span class="w"> </span><span class="nl">rescued</span><span class="p">:</span><span class="w">   </span><span class="mf">99.99</span><span class="o">%</span><span class="p">,</span><span class="w"> </span><span class="k">read</span><span class="w"> </span><span class="nl">errors</span><span class="p">:</span><span class="w">        </span><span class="mi">4</span><span class="p">,</span><span class="w">  </span><span class="n">remaining</span><span class="w"> </span><span class="nc">time</span><span class="err">:</span><span class="w">         </span><span class="n">n</span><span class="o">/</span><span class="n">a</span><span class="w"></span>
+<span class="w">                              </span><span class="nc">time</span><span class="w"> </span><span class="n">since</span><span class="w"> </span><span class="k">last</span><span class="w"> </span><span class="n">successful</span><span class="w"> </span><span class="k">read</span><span class="err">:</span><span class="w">          </span><span class="mi">3</span><span class="n">s</span><span class="w"></span>
+<span class="n">Finished</span><span class="w">  </span>
+</pre></div>
+
+
+<p>Now, let's try to grab the metadata from this copied partition image.
+Mount the image, and then dump/restore the metadata to yet <em>another</em> image.</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">losetup</span><span class="w"> </span><span class="c1">--find --show /mnt/server6-home-rescue.img</span>
+<span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop1</span><span class="w"></span>
+
+
+<span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">xfs_metadump</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop1</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">rescued</span><span class="o">-</span><span class="n">img</span><span class="p">.</span><span class="n">metadump</span><span class="w"></span>
+<span class="nl">xfs_metadump</span><span class="p">:</span><span class="w"> </span><span class="nl">Warning</span><span class="p">:</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">recovery</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="n">an</span><span class="w"> </span><span class="n">obfuscated</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="nc">image</span><span class="w"> </span><span class="n">can</span><span class="w"> </span><span class="n">leak</span><span class="w"> </span><span class="n">unobfuscated</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="ow">and</span><span class="o">/</span><span class="ow">or</span><span class="w"> </span><span class="n">cause</span><span class="w"> </span><span class="nc">image</span><span class="w"> </span><span class="n">corruption</span><span class="p">.</span><span class="w">  </span><span class="k">If</span><span class="w"> </span><span class="n">possible</span><span class="p">,</span><span class="w"> </span><span class="n">please</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">clean</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="p">,</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">disable</span><span class="w"> </span><span class="n">obfuscation</span><span class="p">.</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">xfs_mdrestore</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">rescued</span><span class="o">-</span><span class="n">img</span><span class="p">.</span><span class="n">metadump</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">rescued</span><span class="o">-</span><span class="n">metadata</span><span class="p">.</span><span class="n">img</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">xfs_repair</span><span class="w"> </span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">server6</span><span class="o">-</span><span class="n">rescued</span><span class="o">-</span><span class="n">metadata</span><span class="p">.</span><span class="n">img</span><span class="w"></span>
+<span class="n">Cannot</span><span class="w"> </span><span class="k">get</span><span class="w"> </span><span class="k">host</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">geometry</span><span class="p">.</span><span class="w"></span>
+<span class="n">Repair</span><span class="w"> </span><span class="n">may</span><span class="w"> </span><span class="n">fail</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">there</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">sector</span><span class="w"> </span><span class="k">size</span><span class="w"> </span><span class="n">mismatch</span><span class="w"> </span><span class="ow">between</span><span class="w"></span>
+<span class="n">the</span><span class="w"> </span><span class="nc">image</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="k">host</span><span class="w"> </span><span class="n">filesystem</span><span class="p">.</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">find</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">verify</span><span class="w"> </span><span class="n">superblock</span><span class="p">...</span><span class="w"></span>
+<span class="n">Cannot</span><span class="w"> </span><span class="k">get</span><span class="w"> </span><span class="k">host</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">geometry</span><span class="p">.</span><span class="w"></span>
+<span class="n">Repair</span><span class="w"> </span><span class="n">may</span><span class="w"> </span><span class="n">fail</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">there</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">sector</span><span class="w"> </span><span class="k">size</span><span class="w"> </span><span class="n">mismatch</span><span class="w"> </span><span class="ow">between</span><span class="w"></span>
+<span class="n">the</span><span class="w"> </span><span class="nc">image</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="k">host</span><span class="w"> </span><span class="n">filesystem</span><span class="p">.</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="k">using</span><span class="w"> </span><span class="n">internal</span><span class="w"> </span><span class="nf">log</span><span class="w"></span>
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="n">zero</span><span class="w"> </span><span class="nf">log</span><span class="p">...</span><span class="w"></span>
+<span class="nl">ERROR</span><span class="p">:</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">has</span><span class="w"> </span><span class="n">valuable</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="n">changes</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="n">needs</span><span class="w"> </span><span class="k">to</span><span class="w"></span>
+<span class="n">be</span><span class="w"> </span><span class="n">replayed</span><span class="p">.</span><span class="w">  </span><span class="n">Mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">replay</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="p">,</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">unmount</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="k">before</span><span class="w"></span>
+<span class="n">re</span><span class="o">-</span><span class="n">running</span><span class="w"> </span><span class="n">xfs_repair</span><span class="p">.</span><span class="w">  </span><span class="k">If</span><span class="w"> </span><span class="n">you</span><span class="w"> </span><span class="k">are</span><span class="w"> </span><span class="n">unable</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="p">,</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="k">use</span><span class="w"></span>
+<span class="n">the</span><span class="w"> </span><span class="o">-</span><span class="n">L</span><span class="w"> </span><span class="k">option</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="k">destroy</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">attempt</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">repair</span><span class="p">.</span><span class="w"></span>
+<span class="n">Note</span><span class="w"> </span><span class="n">that</span><span class="w"> </span><span class="n">destroying</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">may</span><span class="w"> </span><span class="n">cause</span><span class="w"> </span><span class="n">corruption</span><span class="w"> </span><span class="c1">-- please attempt a mount</span>
+<span class="k">of</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">before</span><span class="w"> </span><span class="n">doing</span><span class="w"> </span><span class="n">this</span><span class="p">.</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">losetup</span><span class="w"> </span><span class="c1">--show --find /mnt/server6-rescued-metadata.img</span>
+<span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop2</span><span class="w"></span>
+
+
+<span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">xfs_repair</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop2</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">find</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">verify</span><span class="w"> </span><span class="n">superblock</span><span class="p">...</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="k">using</span><span class="w"> </span><span class="n">internal</span><span class="w"> </span><span class="nf">log</span><span class="w"></span>
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="n">zero</span><span class="w"> </span><span class="nf">log</span><span class="p">...</span><span class="w"></span>
+<span class="nl">ERROR</span><span class="p">:</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">has</span><span class="w"> </span><span class="n">valuable</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="n">changes</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="n">needs</span><span class="w"> </span><span class="k">to</span><span class="w"></span>
+<span class="n">be</span><span class="w"> </span><span class="n">replayed</span><span class="p">.</span><span class="w">  </span><span class="n">Mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">replay</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="p">,</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">unmount</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="k">before</span><span class="w"></span>
+<span class="n">re</span><span class="o">-</span><span class="n">running</span><span class="w"> </span><span class="n">xfs_repair</span><span class="p">.</span><span class="w">  </span><span class="k">If</span><span class="w"> </span><span class="n">you</span><span class="w"> </span><span class="k">are</span><span class="w"> </span><span class="n">unable</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="p">,</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="k">use</span><span class="w"></span>
+<span class="n">the</span><span class="w"> </span><span class="o">-</span><span class="n">L</span><span class="w"> </span><span class="k">option</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="k">destroy</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">attempt</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">repair</span><span class="p">.</span><span class="w"></span>
+<span class="n">Note</span><span class="w"> </span><span class="n">that</span><span class="w"> </span><span class="n">destroying</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">may</span><span class="w"> </span><span class="n">cause</span><span class="w"> </span><span class="n">corruption</span><span class="w"> </span><span class="c1">-- please attempt a mount</span>
+<span class="k">of</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">before</span><span class="w"> </span><span class="n">doing</span><span class="w"> </span><span class="n">this</span><span class="p">.</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mkdir</span><span class="w"> </span><span class="o">/</span><span class="n">mnt2</span><span class="w"></span>
+<span class="o">[</span><span class="n">root@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop2</span><span class="w"> </span><span class="o">/</span><span class="n">mnt2</span><span class="w"></span>
+<span class="nl">mount</span><span class="p">:</span><span class="w"> </span><span class="o">/</span><span class="nl">mnt2</span><span class="p">:</span><span class="w"> </span><span class="n">mount</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">system</span><span class="w"> </span><span class="k">call</span><span class="w"> </span><span class="nl">failed</span><span class="p">:</span><span class="w"> </span><span class="k">Structure</span><span class="w"> </span><span class="n">needs</span><span class="w"> </span><span class="n">cleaning</span><span class="p">.</span><span class="w"></span>
+</pre></div>
+
+
+<p>Okay. We expected that.<br>
+Let's do the last-resort, fully destructive repair operation. Remember, we're still operating on the on the <em>metadata</em> image from the <em>copied</em> partition image.</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi /]# xfs_repair -L /dev/loop2</span>
+<span class="err">Phase 1 - find and verify superblock...</span>
+<span class="err">Phase 2 - using internal log</span>
+<span class="err">        - zero log...</span>
+<span class="c">ALERT: The filesystem has valuable metadata changes in a log which is being</span>
+<span class="err">destroyed because the -L option was used.</span>
+<span class="err">        - scan filesystem freespace and inode maps...</span>
+<span class="err">sb_fdblocks 1723017, counted 1731714</span>
+<span class="err">        - found root inode chunk</span>
+<span class="err">Phase 3 - for each AG...</span>
+<span class="err">        - scan and clear agi unlinked lists...</span>
+<span class="err">        - process known inodes and perform inode discovery...</span>
+<span class="err">        - agno = 0</span>
+<span class="err">Metadata corruption detected at 0x51b650, xfs_inode block 0x2c9000/0x2000</span>
+<span class="err">bad magic number 0x0 on inode 5840900</span>
+<span class="err">bad version number 0x0 on inode 5840900</span>
+<span class="err">bad next_unlinked 0x0 on inode 5840900</span>
+<span class="err">bad magic number 0x0 on inode 5840901</span>
+<span class="err">bad version number 0x0 on inode 5840901</span>
+<span class="err">bad next_unlinked 0x0 on inode 5840901</span>
+<span class="err">bad magic number 0x0 on inode 5840900, resetting magic number</span>
+<span class="err">bad version number 0x0 on inode 5840900, resetting version number</span>
+<span class="err">bad next_unlinked 0x0 on inode 5840900, resetting next_unlinked</span>
+<span class="err">imap claims a free inode 5840900 is in use, correcting imap and clearing inode</span>
+<span class="err">cleared inode 5840900</span>
+<span class="err">bad magic number 0x0 on inode 5840901, resetting magic number</span>
+<span class="err">bad version number 0x0 on inode 5840901, resetting version number</span>
+<span class="err">bad next_unlinked 0x0 on inode 5840901, resetting next_unlinked</span>
+<span class="err">imap claims a free inode 5840901 is in use, correcting imap and clearing inode</span>
+<span class="err">cleared inode 5840901</span>
+<span class="err">        - agno = 1</span>
+<span class="err">Metadata corruption detected at 0x50cd48, xfs_dir3_block block 0x2d24dd0/0x1000</span>
+<span class="err">        - agno = 2</span>
+<span class="err">        - agno = 3</span>
+<span class="err">        - process newly discovered inodes...</span>
+<span class="err">Phase 4 - check for duplicate blocks...</span>
+<span class="err">        - setting up duplicate extent list...</span>
+<span class="err">        - check for inodes claiming duplicate blocks...</span>
+<span class="err">        - agno = 0</span>
+<span class="err">entry &quot;yW5knH-uj-UcvFmnM5CXvwZHrx?=0&quot; at block 1238 offset 2992 in directory inode 13508451 references free inode 5840901</span>
+<span class="err">    clearing inode number in entry at offset 2992...</span>
+<span class="err">entry &quot;Ja_rLm8K4VNoEIN8CR3ujtnulyRarKI1kIgwud6m 15t&quot; at block 0 offset 344 in directory inode 66696251 references free inode 5840900</span>
+<span class="err">    clearing inode number in entry at offset 344...</span>
+<span class="err">        - agno = 1</span>
+<span class="err">Metadata corruption detected at 0x50cd48, xfs_dir3_block block 0x2d24dd0/0x1000</span>
+<span class="err">        - agno = 2</span>
+<span class="err">        - agno = 3</span>
+<span class="err">Phase 5 - rebuild AG headers and trees...</span>
+<span class="err">        - reset superblock...</span>
+<span class="err">Phase 6 - check inode connectivity...</span>
+<span class="err">        - resetting contents of realtime bitmap and summary inodes</span>
+<span class="err">        - traversing filesystem ...</span>
+<span class="err">rebuilding directory inode 13508451</span>
+<span class="err">bad hash table for directory inode 66696251 (no data entry): rebuilding</span>
+<span class="err">rebuilding directory inode 66696251</span>
+<span class="err">Metadata corruption detected at 0x50cd48, xfs_dir3_block block 0x2d24dd0/0x1000</span>
+<span class="err">bad hash table for directory inode 134370432 (hash value mismatch): rebuilding</span>
+<span class="err">rebuilding directory inode 134370432</span>
+<span class="err">...</span>
+</pre></div>
+
+
+<p>Survey says....<em>hoooonk</em></p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi /]# mount /dev/loop2 /mnt2</span>
+<span class="err">[root@alarmpi /]# ls /mnt2</span>
+<span class="err">&#39;&#39;$&#39;\003&#39;&#39;kovu&#39;           &#39;Gb0&#39;$&#39;\016&#39;&#39;n&#39;$&#39;\021&#39;&#39;k&#39;$&#39;\033&#39;        &#39;bcCa-D&#39;$&#39;\005\023&#39;&#39;C&#39;$&#39;\032&#39;&#39;m&#39;  &#39;ryN&#39;$&#39;\004&#39;&#39;xVX&#39;$&#39;\024&#39;</span>
+<span class="err">&#39;&#39;$&#39;\a&#39;&#39;hat5&#39;             &#39;GpzR_Ksp&#39;$&#39;\001\264&#39;&#39;J0E&#39;          &#39;h&#39;$&#39;\t&#39;&#39;rro\&#39;             user11</span>
+<span class="err">&#39;&#39;$&#39;\016&#39;&#39;cpal&#39;           &#39;Hwp-hBh&#39;$&#39;\b&#39;&#39;?;% &#39;            &#39;j&#39;$&#39;\003&#39;&#39;pajK&#39;          &#39;y7jG8CU4bonN2aujzfJamyN3xY&#39;$&#39;\a\v\034&#39;&#39;cs&#39;</span>
+<span class="err">&#39;-Xqcr&#39;$&#39;\016&#39;&#39;2o&#39;$&#39;\005&#39;&#39;k&#39;  &#39;N6&#39;$&#39;\001\343&#39;&#39;vdA&#39;            &#39;mF88U1Y-&#39;$&#39;\016\033&#39;&#39;Hs,&#39;    &#39;yv8UsY&#39;$&#39;\002\036&#39;&#39;#R3&#39;</span>
+<span class="err">&#39;76q67pR&#39;$&#39;\002&#39;&#39;&gt;]YT&#39;        &#39;UROC0Bh9c&#39;$&#39;\001&#39;&#39;B&#39;$&#39;\027&#39;&#39;:&#39;$&#39;\177&#39;  &#39;n&#39;$&#39;\001&#39;&#39;tesb&#39;</span>
+<span class="err">&#39;8n-B&#39;$&#39;\001&#39;&#39;CItv&#39;       &#39;WP4c&#39;$&#39;\016&#39;&#39;~Ia&#39;$&#39;\037&#39;           &#39;qsw77&#39;$&#39;\016&#39;&#39;D7x@&#39;</span>
+</pre></div>
+
+
+<p>Fine. Let's just try the operation directly on the copied partition image created from ddrescue.</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">alarm@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">losetup</span><span class="w"> </span><span class="c1">--find --show /mnt/server6-home-rescue.img</span>
+<span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop3</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">alarm@alarmpi /</span><span class="o">]</span><span class="err">$</span><span class="w"> </span><span class="n">sudo</span><span class="w"> </span><span class="n">xfs_repair</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop3</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">find</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">verify</span><span class="w"> </span><span class="n">superblock</span><span class="p">...</span><span class="w"></span>
+<span class="n">Phase</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="k">using</span><span class="w"> </span><span class="n">internal</span><span class="w"> </span><span class="nf">log</span><span class="w"></span>
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="n">zero</span><span class="w"> </span><span class="nf">log</span><span class="p">...</span><span class="w"></span>
+<span class="nl">ERROR</span><span class="p">:</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">has</span><span class="w"> </span><span class="n">valuable</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="n">changes</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="n">needs</span><span class="w"> </span><span class="k">to</span><span class="w"></span>
+<span class="n">be</span><span class="w"> </span><span class="n">replayed</span><span class="p">.</span><span class="w">  </span><span class="n">Mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">replay</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="p">,</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">unmount</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="k">before</span><span class="w"></span>
+<span class="n">re</span><span class="o">-</span><span class="n">running</span><span class="w"> </span><span class="n">xfs_repair</span><span class="p">.</span><span class="w">  </span><span class="k">If</span><span class="w"> </span><span class="n">you</span><span class="w"> </span><span class="k">are</span><span class="w"> </span><span class="n">unable</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="p">,</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="k">use</span><span class="w"></span>
+<span class="n">the</span><span class="w"> </span><span class="o">-</span><span class="n">L</span><span class="w"> </span><span class="k">option</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="k">destroy</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">attempt</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">repair</span><span class="p">.</span><span class="w"></span>
+<span class="n">Note</span><span class="w"> </span><span class="n">that</span><span class="w"> </span><span class="n">destroying</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="nf">log</span><span class="w"> </span><span class="n">may</span><span class="w"> </span><span class="n">cause</span><span class="w"> </span><span class="n">corruption</span><span class="w"> </span><span class="c1">-- please attempt a mount</span>
+<span class="k">of</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="k">before</span><span class="w"> </span><span class="n">doing</span><span class="w"> </span><span class="n">this</span><span class="p">.</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">alarm@alarmpi /</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mkdir</span><span class="w"> </span><span class="o">/</span><span class="n">mnt3</span><span class="w">  </span>
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop3</span><span class="w"> </span><span class="o">/</span><span class="n">mnt3</span><span class="w"></span>
+<span class="nl">mount</span><span class="p">:</span><span class="w"> </span><span class="o">/</span><span class="nl">mnt3</span><span class="p">:</span><span class="w"> </span><span class="n">mount</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">system</span><span class="w"> </span><span class="k">call</span><span class="w"> </span><span class="nl">failed</span><span class="p">:</span><span class="w"> </span><span class="k">Structure</span><span class="w"> </span><span class="n">needs</span><span class="w"> </span><span class="n">cleaning</span><span class="p">.</span><span class="w"></span>
+</pre></div>
+
+
+<p>Okay. As expected.<br>
+Let's go straight to -L.</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi ~]# xfs_repair -L /dev/loop3</span>
+<span class="err">Phase 1 - find and verify superblock...</span>
+<span class="err">Phase 2 - using internal log</span>
+<span class="err">        - zero log...</span>
+<span class="c">ALERT: The filesystem has valuable metadata changes in a log which is being</span>
+<span class="err">destroyed because the -L option was used.</span>
+<span class="err">        - scan filesystem freespace and inode maps...</span>
+<span class="err">sb_fdblocks 1723017, counted 1731714</span>
+<span class="err">        - found root inode chunk</span>
+<span class="err">Phase 3 - for each AG...</span>
+<span class="err">        - scan and clear agi unlinked lists...</span>
+<span class="err">        - process known inodes and perform inode discovery...</span>
+<span class="err">        - agno = 0</span>
+<span class="err">Metadata corruption detected at 0x553650, xfs_inode block 0x2c9000/0x2000</span>
+<span class="err">bad magic number 0x0 on inode 5840900</span>
+<span class="err">bad version number 0x0 on inode 5840900</span>
+<span class="err">bad next_unlinked 0x0 on inode 5840900</span>
+<span class="err">bad magic number 0x0 on inode 5840901</span>
+<span class="err">bad version number 0x0 on inode 5840901</span>
+<span class="err">bad next_unlinked 0x0 on inode 5840901</span>
+<span class="err">bad magic number 0x0 on inode 5840900, resetting magic number</span>
+<span class="err">bad version number 0x0 on inode 5840900, resetting version number</span>
+<span class="err">bad next_unlinked 0x0 on inode 5840900, resetting next_unlinked</span>
+<span class="err">imap claims a free inode 5840900 is in use, correcting imap and clearing inode</span>
+<span class="err">cleared inode 5840900</span>
+<span class="err">bad magic number 0x0 on inode 5840901, resetting magic number</span>
+<span class="err">bad version number 0x0 on inode 5840901, resetting version number</span>
+<span class="err">bad next_unlinked 0x0 on inode 5840901, resetting next_unlinked</span>
+<span class="err">imap claims a free inode 5840901 is in use, correcting imap and clearing inode</span>
+<span class="err">cleared inode 5840901</span>
+<span class="err">        - agno = 1</span>
+<span class="err">        - agno = 2</span>
+<span class="err">        - agno = 3</span>
+<span class="err">        - process newly discovered inodes...</span>
+<span class="err">Phase 4 - check for duplicate blocks...</span>
+<span class="err">        - setting up duplicate extent list...</span>
+<span class="err">        - check for inodes claiming duplicate blocks...</span>
+<span class="err">        - agno = 0</span>
+<span class="err">entry &quot;sess_57usp4fkeg1icc0pbkmju3nn34&quot; at block 1238 offset 2992 in directory inode 13508451 references free inode 5840901</span>
+<span class="err">    clearing inode number in entry at offset 2992...</span>
+<span class="err">entry &quot;zend_cache---internal-metadatas---artist_skin&quot; at block 0 offset 344 in directory inode 66696251 references free inode 5840900</span>
+<span class="err">    clearing inode number in entry at offset 344...</span>
+<span class="err">        - agno = 1</span>
+<span class="err">        - agno = 2</span>
+<span class="err">        - agno = 3</span>
+<span class="err">Phase 5 - rebuild AG headers and trees...</span>
+<span class="err">        - reset superblock...</span>
+<span class="err">Phase 6 - check inode connectivity...</span>
+<span class="err">        - resetting contents of realtime bitmap and summary inodes</span>
+<span class="err">        - traversing filesystem ...</span>
+<span class="err">rebuilding directory inode 13508451</span>
+<span class="err">bad hash table for directory inode 66696251 (no data entry): rebuilding</span>
+<span class="err">rebuilding directory inode 66696251</span>
+<span class="err">        - traversal finished ...</span>
+<span class="err">        - moving disconnected inodes to lost+found ...</span>
+<span class="err">Phase 7 - verify and correct link counts...</span>
+<span class="err">Note - quota info will be regenerated on next quota mount.</span>
+<span class="err">done</span>
+</pre></div>
+
+
+<p>Let's give it a try...</p>
+<div class="highlight"><pre><span></span><span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">loop3</span><span class="w"> </span><span class="o">/</span><span class="n">mnt3</span><span class="w"></span>
+
+<span class="o">[</span><span class="n">root@alarmpi ~</span><span class="o">]</span><span class="err">#</span><span class="w"> </span><span class="n">ls</span><span class="w"> </span><span class="o">/</span><span class="n">mnt3</span><span class="w"></span>
+<span class="mi">0</span><span class="n">_README_BEFORE_DELETING_VIRTFS</span><span class="w">  </span><span class="n">aquota</span><span class="p">.</span><span class="k">user</span><span class="w">    </span><span class="n">user1</span><span class="w">    </span><span class="n">user2</span><span class="w">   </span><span class="n">user3</span><span class="w">  </span><span class="n">user4</span><span class="w">  </span><span class="n">quota</span><span class="p">.</span><span class="k">user</span><span class="w">  </span><span class="n">user5</span><span class="w">     </span><span class="n">user0</span><span class="w"> </span><span class="n">cPanelInstall</span><span class="w">    </span><span class="n">cpanelsolr</span><span class="w">  </span><span class="n">user10</span><span class="w">  </span><span class="n">user6</span><span class="w">  </span><span class="n">user7</span><span class="w">  </span><span class="n">user9</span><span class="w">  </span><span class="n">quota</span><span class="p">.</span><span class="k">group</span><span class="w">     </span><span class="n">virtfs</span><span class="w"></span>
+</pre></div>
+
+
+<p>WTF? Success?
+I honestly did not expect that.  </p>
+<p>Some of the files themselves may be corrupted (probably from being in an inconsistent state when all this went down), but after poking around a bit, it appears that this does indeed contain sufficient data to make the recovery efforts worthwhile.</p>
+<p>Copy the homedirs out of the mounted image and onto the external USB drive to upload later.</p>
+<div class="highlight"><pre><span></span><span class="err">[root@alarmpi ~]# cd /mnt3</span>
+<span class="err">[root@alarmpi mnt3]# for i in user1 user10 user3 user6 user7 user9 user4 user5 user0 user2; do echo $i; tar -cf /mnt/$i.tar $i; echo &quot;$i done!&quot;; done</span>
+</pre></div>
+
+
+<p>References:
+https://serverfault.com/questions/777299/proper-way-to-deal-with-corrupt-xfs-filesystems
+https://wiki.archlinux.org/index.php/Disk_cloning#Using_ddrescue
+https://wiki.archlinux.org/index.php/XFS#Repair_XFS_Filesystem
+https://jlk.fjfi.cvut.cz/arch/manpages/man/xfs_repair.8</p>
+<p>Happily, did not have to do this one:
+https://serverfault.com/a/834853</p>
+        </div>
+
+    </div>
+  </div>
+
+
+
+    </div>
+  </section>
+
+
+    <section id="bottom">
+    <div class="container">
+
+      <div class="row row-cols-1 row-cols-md-3 mb-4">
+          <div class="col">
+            <div class="card h-100">
+				        <div class="card-header">
+                  <h4>Pages</h4>
+                </div>
+                <div class="card-body">
+                  <ul>
+                    <li><a href="../pages/about.html">About</a></li>
+                    <li><a href="../pages/contact.html">Contact</a></li>
+                    <li><a href="../pages/resume.html">Resume</a></li>
+                  </ul>
+                </div>
+            </div>
+          </div>
+
+
+
+           <div class="col">
+               <div class="card h-100">
+                   <div class="card-header">
+                        <h4>Social</h4>
+                  </div>
+                  <div class="card-body">
+                        <ul>
+                            <li><a href="https://linkedin.com/in/andrewboring">LinkedIn</a></li>
+                            <li><a href="https://twitter.com/andrewboring">Twitter</a></li>
+                            <li><a href="https://soundcloud.com/andrewboring">SoundCloud</a></li>
+                            <li><a href="https://github.com/andrewboring">Github</a></li>
+                        </ul>
+                  </div>
+               	</div>
+            </div>
+
+            <div class="col">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h4>Data</h4>
+                </div>
+                  <div class="card-body">
+                    <ul>
+                    <li><a href="../content/index.html">All content</a></li>
+                    <li><a href="../sitemap.xml">Sitemap</a></li>
+                    <li><a href="../feeds/all/atom.xml" rel="alternate">Atom feed</a></li>
+                    <li><a href="../feeds/all/rss.xml" rel="alternate">RSS feed</a></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+          </div>
+      </div>
+</section>
+<section id="footer">
+
+          <div class="row footer" id="copyright">
+
+           		  <div class="container text-center">
+                  <p class="mt-4">&copy Copyright Andrew Boring 2020<br>
+                    All Hail Discordia!</p>
+                </div>
+
+          </div>
+
+</section>
+
+<!-- Optional JavaScript -->
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+<script src="https://embed.small.chat/T69NDBZ7DG6AMU0S14.js" async></script>
+</div>
+</body>
+</html>

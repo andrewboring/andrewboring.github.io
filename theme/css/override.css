@@ -1,0 +1,44 @@
+//section.content {  display: inline-block; }
+@import url("pygment.css");
+
+.footer { background-color: #f8f8f8; }
+.jumbotron { background-color: transparent; }
+
+#back {
+  position: -webkit-sticky;
+  //position: -moz-sticky;
+  //position: -ms-sticky;
+  //position: -o-sticky;
+  position: sticky;
+  top: 0;
+  padding: 15px;
+  background-color: #f8f8f8;
+  border: 1px solid #e0e0e0;
+}
+.back {
+  position: -webkit-sticky;
+  //position: -moz-sticky;
+  //position: -ms-sticky;
+  //position: -o-sticky;
+  position: sticky;
+  top: 0;
+  padding-left: 15px;
+  padding-right: 15px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background-color: #f8f8f8;
+  border: 1px solid #e0e0e0;
+}
+
+// Ensure all images are responsive
+img {
+  max-width: 100%;
+  heigh: auto;
+}
+
+// http://sparkandshine.net/en/insert-images-with-captions-in-markdown/
+img + em {
+  display: block;
+  text-align: left;
+  font-size: 90%;
+}
